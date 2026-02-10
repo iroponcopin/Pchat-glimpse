@@ -1,89 +1,95 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="ja">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>MY Messenger</title>
+    <title>Glimpse pChat</title>
     <link rel="stylesheet" href="style.css">
 </head>
 <body>
     
-    <!-- Auth Screen -->
+    <!-- 認証画面 (ログイン / 新規登録) -->
     <div id="auth-screen" class="auth-container">
         <div class="auth-box glass-panel">
+            <!-- ロゴ変更 -->
             <h1 class="nav-logo">Glimpse pChat</h1>
+            
             <div class="auth-tabs">
-                <button id="tab-login" class="active">Login</button>
-                <button id="tab-register">Register</button>
+                <button id="tab-login" class="active">ログイン</button>
+                <button id="tab-register">新規登録</button>
             </div>
             
+            <!-- ログインフォーム -->
             <form id="login-form">
-                <input type="text" id="login-id" placeholder="Login ID" required>
-                <input type="password" id="login-pass" placeholder="Password" required>
-                <button type="submit" class="cta-button full-width">Sign In</button>
+                <input type="text" id="login-id" placeholder="ユーザーID" required>
+                <input type="password" id="login-pass" placeholder="パスワード" required>
+                <button type="submit" class="cta-button full-width">ログイン</button>
             </form>
 
+            <!-- 新規登録フォーム -->
             <form id="register-form" style="display:none;">
-                <input type="text" id="reg-id" placeholder="Choose Login ID" required>
-                <input type="text" id="reg-name" placeholder="Display Name" required>
-                <input type="password" id="reg-pass" placeholder="Password" required>
-                <button type="submit" class="cta-button full-width">Create Account</button>
+                <input type="text" id="reg-id" placeholder="希望するユーザーID (半角英数)" required>
+                <input type="text" id="reg-name" placeholder="表示名 (ニックネーム)" required>
+                <input type="password" id="reg-pass" placeholder="パスワード" required>
+                <button type="submit" class="cta-button full-width" style="background-color: #34c759;">アカウント作成</button>
             </form>
             <p id="auth-error" class="error-msg"></p>
         </div>
     </div>
 
-    <!-- Main Messenger App -->
+    <!-- メインアプリ画面 -->
     <div id="app-screen" class="app-container" style="display:none;">
         
-        <!-- Sidebar: Friends & Search -->
+        <!-- サイドバー: 友達リスト & 検索 -->
         <aside class="sidebar glass-panel">
             <header class="sidebar-header">
                 <div class="user-profile">
-                    <div class="avatar-circle" id="my-avatar">Me</div>
-                    <span id="my-display-name">Loading...</span>
+                    <div class="avatar-circle" id="my-avatar">私</div>
+                    <span id="my-display-name">読み込み中...</span>
                 </div>
-                <button id="add-friend-btn" class="icon-btn">+</button>
+                <!-- 友達追加ボタン -->
+                <button id="add-friend-btn" class="icon-btn" title="友達を追加">＋</button>
             </header>
 
             <div id="search-bar-container" style="display:none;">
-                <input type="text" id="user-search-input" placeholder="Search User ID...">
+                <input type="text" id="user-search-input" placeholder="ユーザーIDで検索...">
                 <div id="search-results"></div>
             </div>
 
             <div class="tabs">
-                <button class="tab-btn active" data-filter="friends">Friends</button>
-                <button class="tab-btn" data-filter="requests">Requests</button>
+                <button class="tab-btn active" data-filter="friends">友達</button>
+                <button class="tab-btn" data-filter="requests">承認待ち</button>
             </div>
 
             <ul id="friend-list" class="list-view">
-                <!-- Friends injected here -->
+                <!-- ここに友達リストが挿入されます -->
             </ul>
         </aside>
 
-        <!-- Chat Area -->
+        <!-- チャットエリア -->
         <main class="chat-area glass-panel">
             <div id="no-chat-selected" class="empty-state">
-                <h2>Welcome back</h2>
-                <p>Select a friend to start chatting.</p>
+                <h2>おかえりなさい</h2>
+                <p>リストから友達を選んでチャットを開始しましょう。</p>
             </div>
 
             <div id="chat-interface" style="display:none;">
                 <header class="chat-header">
                     <h3 id="chat-with-name">User</h3>
-                    <span id="chat-presence" class="presence-indicator">Offline</span>
+                    <span id="chat-presence" class="presence-indicator">オフライン</span>
                 </header>
 
                 <div id="message-container" class="messages-scroll">
-                    <!-- Messages injected here -->
+                    <!-- メッセージがここに表示されます -->
                 </div>
 
+                <!-- 入力中インジケーター -->
                 <div class="typing-indicator" id="typing-indicator">
                     <span></span><span></span><span></span>
                 </div>
 
                 <form id="message-form" class="message-input-area">
-                    <input type="text" id="message-input" placeholder="Type a message..." autocomplete="off">
+                    <input type="text" id="message-input" placeholder="メッセージを入力..." autocomplete="off">
                     <button type="submit" class="send-btn">↑</button>
                 </form>
             </div>
