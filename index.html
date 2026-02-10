@@ -1,0 +1,78 @@
+<!DOCTYPE html>
+<html lang="en-GB">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1.0" />
+  <title>Mini Messenger</title>
+  <link rel="stylesheet" href="./style.css" />
+</head>
+<body>
+  <div id="app">
+    <div id="auth">
+      <h1>Mini Messenger</h1>
+
+      <div class="card">
+        <h2>Register</h2>
+        <input id="r_login" placeholder="Login ID (username/email)" />
+        <input id="r_name" placeholder="Display name (optional)" />
+        <input id="r_pass" type="password" placeholder="Password (min 8 chars)" />
+        <button id="btn_register">Register</button>
+        <p class="hint" id="r_msg"></p>
+      </div>
+
+      <div class="card">
+        <h2>Login</h2>
+        <input id="l_login" placeholder="Login ID" />
+        <input id="l_pass" type="password" placeholder="Password" />
+        <button id="btn_login">Login</button>
+        <p class="hint" id="l_msg"></p>
+      </div>
+    </div>
+
+    <div id="main" class="hidden">
+      <header>
+        <div>
+          <div id="me"></div>
+          <button id="btn_logout">Logout</button>
+        </div>
+
+        <div class="search">
+          <input id="search_q" placeholder="Search users (loginId / name)" />
+          <button id="btn_search">Search</button>
+        </div>
+      </header>
+
+      <div class="grid">
+        <aside>
+          <h3>Incoming Requests</h3>
+          <div id="incoming"></div>
+
+          <h3>Friends</h3>
+          <div id="friends"></div>
+
+          <h3>Search Results</h3>
+          <div id="results"></div>
+        </aside>
+
+        <section class="chat">
+          <div class="chat-head">
+            <div id="chat_title">Select a friend</div>
+            <div id="chat_status"></div>
+          </div>
+
+          <div id="messages" class="messages"></div>
+          <div class="typing" id="typing"></div>
+
+          <div class="composer">
+            <input id="msg_input" placeholder="Type a message…" />
+            <button id="btn_send">Send</button>
+          </div>
+        </section>
+      </div>
+    </div>
+  </div>
+
+  <script src="/socket.io/socket.io.js"></script>
+  <script src="./app.js"></script>
+</body>
+</html>
