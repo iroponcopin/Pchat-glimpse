@@ -7,7 +7,7 @@ const el = (id) => document.getElementById(id);
 const I18N = {
   en: {
     app_name: "pChat",
-    tagline: "iMessage-style UI • 1:1 DM • friends • receipts",
+    tagline: "1:1 DM • friends • receipts",
     register: "Register",
     create_account: "Create account",
     login: "Login",
@@ -43,7 +43,7 @@ const I18N = {
   },
   ja: {
     app_name: "pChat",
-    tagline: "iMessage風UI • 1:1 DM • フレンド • 既読",
+    tagline: "1:1 DM • フレンド • 既読",
     register: "登録",
     create_account: "アカウント作成",
     login: "ログイン",
