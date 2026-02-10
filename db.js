@@ -3,7 +3,7 @@ const Database = require("better-sqlite3");
 
 const db = new Database("app.db");
 
-// --- Schema ---
+// Schema
 db.exec(`
 PRAGMA journal_mode=WAL;
 
@@ -40,7 +40,7 @@ CREATE TABLE IF NOT EXISTS messages (
   sender_user_id INTEGER NOT NULL,
   body TEXT NOT NULL,
   sent_at INTEGER NOT NULL,
-  read_at INTEGER, -- for 1:1 only
+  read_at INTEGER, -- 1:1 only
   deleted INTEGER NOT NULL DEFAULT 0
 );
 
@@ -68,8 +68,4 @@ function getOrCreateConversation(userA, userB) {
   return db.prepare("SELECT * FROM conversations WHERE id=?").get(info.lastInsertRowid);
 }
 
-module.exports = {
-  db,
-  getOrCreateConversation,
-  normalisePair
-};
+module.exports = { db, getOrCreateConversation, normalisePair };
