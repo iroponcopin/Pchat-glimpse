@@ -41,6 +41,13 @@ body {
     text-align: center;
 }
 
+.nav-logo {
+    font-size: 24px;
+    font-weight: 600;
+    margin-bottom: 20px;
+    color: var(--apple-text-primary);
+}
+
 .auth-tabs {
     display: flex;
     margin-bottom: 20px;
@@ -87,7 +94,7 @@ input:focus {
 .cta-button.full-width { width: 100%; }
 .cta-button:hover { background-color: #0077ed; }
 
-.error-msg { color: #ff3b30; font-size: 14px; }
+.error-msg { color: #ff3b30; font-size: 14px; margin-top: 10px; }
 
 /* Main App Layout */
 .app-container {
@@ -121,6 +128,10 @@ input:focus {
 }
 .icon-btn { background: none; border: none; font-size: 24px; cursor: pointer; color: var(--apple-blue); }
 
+.tabs { display: flex; padding: 10px; gap: 10px; border-bottom: 1px solid rgba(0,0,0,0.05); }
+.tab-btn { flex: 1; border: none; background: none; font-size: 14px; color: var(--apple-text-secondary); cursor: pointer; }
+.tab-btn.active { color: var(--apple-text-primary); font-weight: 600; }
+
 .list-view { list-style: none; padding: 0; margin: 0; overflow-y: auto; flex: 1; }
 .list-item {
     padding: 15px 20px;
@@ -146,6 +157,10 @@ input:focus {
     position: relative;
 }
 
+.empty-state {
+    display: flex; flex-direction: column; justify-content: center; align-items: center; height: 100%; color: var(--apple-text-secondary);
+}
+
 .chat-header {
     padding: 15px 24px;
     background: rgba(255,255,255,0.5);
@@ -155,6 +170,7 @@ input:focus {
     align-items: center;
 }
 .chat-header h3 { margin: 0; font-size: 18px; }
+.presence-indicator { font-size: 12px; color: var(--apple-text-secondary); }
 
 .messages-scroll {
     flex: 1;
@@ -194,7 +210,7 @@ input:focus {
     gap: 10px;
 }
 .send-btn {
-    width: 40px; height: 40px; border-radius: 50%; background: var(--apple-blue); color: white; border: none; cursor: pointer;
+    width: 40px; height: 40px; border-radius: 50%; background: var(--apple-blue); color: white; border: none; cursor: pointer; font-size: 18px;
 }
 
 /* Typing Indicator */
