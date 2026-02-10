@@ -36,6 +36,15 @@ function fmtTime(ts) {
   return d.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
 }
 
+function escapeHtml(s) {
+  return String(s)
+    .replaceAll("&", "&amp;")
+    .replaceAll("<", "&lt;")
+    .replaceAll(">", "&gt;")
+    .replaceAll('"', "&quot;")
+    .replaceAll("'", "&#039;");
+}
+
 function renderMessage(m) {
   const div = document.createElement("div");
   div.className = "msg " + (m.senderUserId === me.id ? "mine" : "theirs");
@@ -52,14 +61,7 @@ function renderMessage(m) {
   return div;
 }
 
-function escapeHtml(s) {
-  return String(s)
-    .replaceAll("&", "&amp;")
-    .replaceAll("<", "&lt;")
-    .replaceAll(">", "&gt;")
-    .replaceAll('"', "&quot;")
-    .replaceAll("'", "&#039;");
-}
+const presenceCache = new Map(); // userId -> { online, lastSeenAt }
 
 async function refreshFriends() {
   const data = await api("/api/friends");
@@ -99,8 +101,6 @@ function renderIncoming(list) {
   });
 }
 
-const presenceCache = new Map(); // userId -> { online, lastSeenAt }
-
 function renderFriends(list) {
   const box = els("friends");
   box.innerHTML = "";
@@ -133,9 +133,11 @@ function renderFriends(list) {
 async function searchUsers() {
   const q = els("search_q").value.trim();
   if (!q) return;
+
   const data = await api(`/api/users/search?q=${encodeURIComponent(q)}`);
   const box = els("results");
   box.innerHTML = "";
+
   if (!data.users.length) {
     box.innerHTML = `<p class="hint">No results.</p>`;
     return;
@@ -155,8 +157,6 @@ async function searchUsers() {
     `;
     row.querySelector("button").onclick = async () => {
       await api("/api/friends/request", { method: "POST", body: JSON.stringify({ toUserId: u.id }) });
-      setMsg("l_msg", "");
-      setMsg("r_msg", "");
       alert("Friend request sent.");
     };
     box.appendChild(row);
@@ -171,11 +171,16 @@ async function openChatWithFriend(friend) {
   const conv = await api("/api/conversations/open", { method: "POST", body: JSON.stringify({ friendUserId: friend.id }) });
   currentConversationId = conv.conversationId;
   lastRenderedMessageId = null;
+
   await loadMessages();
+
+  const p = presenceCache.get(friend.id);
+  els("chat_status").textContent = p?.online ? "Online" : "Offline";
 }
 
 async function loadMessages() {
   if (!currentConversationId) return;
+
   const data = await api(`/api/messages?conversationId=${currentConversationId}&limit=50`);
   const box = els("messages");
   box.innerHTML = "";
@@ -187,20 +192,13 @@ async function loadMessages() {
 
   box.scrollTop = box.scrollHeight;
 
-  // Mark read up to last message (if any)
-  if (lastRenderedMessageId) {
+  if (lastRenderedMessageId && socket) {
     socket.emit("mark_read", { conversationId: currentConversationId, upToMessageId: lastRenderedMessageId });
   }
 }
 
 function connectSocket() {
-  socket = io({
-    // cookies carry the session automatically
-  });
-
-  socket.on("connect", () => {
-    // ok
-  });
+  socket = io();
 
   socket.on("presence_update", (p) => {
     presenceCache.set(p.userId, { online: p.online, lastSeenAt: p.lastSeenAt });
@@ -222,7 +220,6 @@ function connectSocket() {
   });
 
   socket.on("message_received", (m) => {
-    // Only render if it's the currently open conversation
     if (m.conversationId !== currentConversationId) return;
 
     const box = els("messages");
@@ -230,7 +227,6 @@ function connectSocket() {
     box.scrollTop = box.scrollHeight;
     lastRenderedMessageId = m.id;
 
-    // If I am viewing, mark read
     if (m.senderUserId !== me.id) {
       socket.emit("mark_read", { conversationId: currentConversationId, upToMessageId: m.id });
     }
@@ -238,7 +234,6 @@ function connectSocket() {
 
   socket.on("read_receipt_update", (r) => {
     if (r.conversationId !== currentConversationId) return;
-    // simplest approach: reload messages (MVP)
     loadMessages().catch(() => {});
   });
 }
@@ -252,12 +247,14 @@ function emitTyping(isTyping) {
 async function sendMessage() {
   const text = els("msg_input").value.trim();
   if (!text || !currentConversationId) return;
+
   els("msg_input").value = "";
   emitTyping(false);
 
   socket.emit("send_message", { conversationId: currentConversationId, text });
 }
 
+// ---------- boot ----------
 async function boot() {
   try {
     const data = await api("/api/me");
@@ -266,6 +263,7 @@ async function boot() {
     me = data.user;
     els("me").textContent = `Logged in as: ${me.displayName} (${me.loginId})`;
     showMain();
+
     await refreshFriends();
     connectSocket();
   } catch {
@@ -273,7 +271,7 @@ async function boot() {
   }
 }
 
-// --- UI bindings ---
+// ---------- UI bindings ----------
 els("btn_register").onclick = async () => {
   try {
     setMsg("r_msg", "");
@@ -289,6 +287,7 @@ els("btn_register").onclick = async () => {
     me = data.user;
     els("me").textContent = `Logged in as: ${me.displayName} (${me.loginId})`;
     showMain();
+
     await refreshFriends();
     connectSocket();
   } catch (e) {
@@ -310,6 +309,7 @@ els("btn_login").onclick = async () => {
     me = data.user;
     els("me").textContent = `Logged in as: ${me.displayName} (${me.loginId})`;
     showMain();
+
     await refreshFriends();
     connectSocket();
   } catch (e) {
