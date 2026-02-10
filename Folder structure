@@ -2,7 +2,7 @@ my-messenger/
   package.json
   server.js
   db.js
-  /public
+  public/
     index.html
     app.js
     style.css
