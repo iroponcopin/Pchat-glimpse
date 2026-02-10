@@ -34,11 +34,9 @@
       overflow:hidden;
     }
 
-    /* App shell */
     #app{ height:100%; display:flex; justify-content:center; }
     .wrap{ width: min(1120px, 100%); height:100%; padding: 10px; display:flex; flex-direction:column; gap:10px; }
 
-    /* Frosted surfaces */
     .glass{
       background: linear-gradient(180deg, rgba(255,255,255,.10), rgba(255,255,255,.07));
       border:1px solid var(--hairline);
@@ -49,7 +47,7 @@
     /* Auth */
     #auth{ flex:1; display:flex; flex-direction:column; gap:10px; }
     .titleRow{ display:flex; align-items:center; justify-content:space-between; padding:12px 14px; border-radius: 20px; }
-    .brand{ font-weight:700; letter-spacing:.2px; }
+    .brand{ font-weight:800; letter-spacing:.2px; }
     .sub{ color: var(--muted); font-size: 13px; }
 
     .card{ border-radius: 20px; padding: 14px; }
@@ -71,6 +69,7 @@
       border-color: rgba(10,132,255,.55);
       box-shadow: 0 0 0 4px rgba(10,132,255,.18);
     }
+
     button{
       width:100%;
       border:1px solid var(--hairline);
@@ -97,7 +96,7 @@
       border-radius: 20px;
     }
     .meBlock{ display:flex; flex-direction:column; gap:2px; min-width:0; }
-    #meName{ font-weight:700; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+    #meName{ font-weight:800; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
     #meId{ font-size: 12px; color: var(--muted); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
 
     .barActions{ display:flex; gap:8px; align-items:center; }
@@ -137,7 +136,7 @@
       margin: 8px 0;
     }
     .itemLeft{ min-width:0; }
-    .itemName{ font-weight:700; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+    .itemName{ font-weight:800; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
     .itemMeta{ font-size: 12px; color: var(--muted); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
     .itemBtns{ display:flex; gap:8px; }
     .miniBtn{ width:auto; padding: 9px 10px; border-radius: 12px; }
@@ -171,7 +170,7 @@
       border-bottom:1px solid var(--hairline);
       background: rgba(0,0,0,.10);
     }
-    #chatTitle{ font-weight:800; }
+    #chatTitle{ font-weight:900; }
     #chatStatus{ font-size: 12px; color: var(--muted); }
 
     .msgs{
@@ -244,7 +243,7 @@
       width:auto;
     }
 
-    /* Mobile: single-column, iMessage-like */
+    /* Mobile: single-column */
     @media (max-width: 860px){
       .wrap{ padding: 0; gap:0; }
       .topbar{
@@ -254,9 +253,7 @@
         margin:0;
       }
       .layout{ grid-template-columns: 1fr; gap: 10px; padding: 10px; }
-      .sidebar{
-        max-height: 40svh;
-      }
+      .sidebar{ max-height: 40svh; }
       .chat{ height: 56svh; }
     }
     @media (max-width: 420px){
@@ -275,26 +272,29 @@
       <section id="auth">
         <div class="titleRow glass">
           <div>
-            <div class="brand">pChat</div>
-            <div class="sub">iMessage-style UI • 1:1 DM • friends • receipts</div>
+            <div class="brand" data-i18n="app_name">pChat</div>
+            <div class="sub" data-i18n="tagline">iMessage-style UI • 1:1 DM • friends • receipts</div>
+          </div>
+          <div class="barActions">
+            <button id="btn_lang" class="chipBtn" type="button">EN/日本語</button>
           </div>
         </div>
 
         <div class="row2">
           <div class="card glass">
-            <h2>Register</h2>
-            <input id="r_login" placeholder="Login ID (username/email)" autocomplete="username" />
-            <input id="r_name" placeholder="Display name (optional)" autocomplete="nickname" />
-            <input id="r_pass" type="password" placeholder="Password (min 8 chars)" autocomplete="new-password" />
-            <button id="btn_register" class="chipBtn primary" style="width:100%;">Create account</button>
+            <h2 data-i18n="register">Register</h2>
+            <input id="r_login" data-i18n-ph="login_id_ph" placeholder="Login ID (username/email)" autocomplete="username" />
+            <input id="r_name" data-i18n-ph="display_name_ph" placeholder="Display name (optional)" autocomplete="nickname" />
+            <input id="r_pass" type="password" data-i18n-ph="password_new_ph" placeholder="Password (min 8 chars)" autocomplete="new-password" />
+            <button id="btn_register" class="chipBtn primary" style="width:100%;" data-i18n="create_account">Create account</button>
             <p class="hint" id="r_msg"></p>
           </div>
 
           <div class="card glass">
-            <h2>Login</h2>
-            <input id="l_login" placeholder="Login ID" autocomplete="username" />
-            <input id="l_pass" type="password" placeholder="Password" autocomplete="current-password" />
-            <button id="btn_login" class="chipBtn primary" style="width:100%;">Login</button>
+            <h2 data-i18n="login">Login</h2>
+            <input id="l_login" data-i18n-ph="login_id_ph2" placeholder="Login ID" autocomplete="username" />
+            <input id="l_pass" type="password" data-i18n-ph="password_ph" placeholder="Password" autocomplete="current-password" />
+            <button id="btn_login" class="chipBtn primary" style="width:100%;" data-i18n="login_btn">Login</button>
             <p class="hint" id="l_msg"></p>
           </div>
         </div>
@@ -309,7 +309,8 @@
           </div>
 
           <div class="barActions">
-            <button id="btn_logout" class="chipBtn">Logout</button>
+            <button id="btn_lang_main" class="chipBtn" type="button">EN/日本語</button>
+            <button id="btn_logout" class="chipBtn" type="button" data-i18n="logout">Logout</button>
           </div>
         </header>
 
@@ -317,17 +318,17 @@
           <!-- Sidebar -->
           <aside class="sidebar glass">
             <div class="searchRow">
-              <input id="search_q" placeholder="Search users…" />
-              <button id="btn_search" class="chipBtn">Search</button>
+              <input id="search_q" data-i18n-ph="search_ph" placeholder="Search users…" />
+              <button id="btn_search" class="chipBtn" type="button" data-i18n="search_btn">Search</button>
             </div>
 
-            <div class="sectionTitle">Incoming Requests</div>
+            <div class="sectionTitle" data-i18n="incoming">Incoming Requests</div>
             <div id="incoming"></div>
 
-            <div class="sectionTitle">Friends</div>
+            <div class="sectionTitle" data-i18n="friends">Friends</div>
             <div id="friends"></div>
 
-            <div class="sectionTitle">Search Results</div>
+            <div class="sectionTitle" data-i18n="results">Search Results</div>
             <div id="results"></div>
           </aside>
 
@@ -335,7 +336,7 @@
           <section class="chat glass">
             <div class="chatHead">
               <div>
-                <div id="chatTitle">Select a friend</div>
+                <div id="chatTitle" data-i18n="select_friend">Select a friend</div>
                 <div id="chatStatus"></div>
               </div>
             </div>
@@ -344,8 +345,8 @@
             <div id="typing" class="typing"></div>
 
             <div class="composer">
-              <input id="msg_input" placeholder="iMessage vibe… type here" />
-              <button id="btn_send" class="chipBtn primary">Send</button>
+              <input id="msg_input" data-i18n-ph="message_ph" placeholder="iMessage vibe… type here" />
+              <button id="btn_send" class="chipBtn primary" type="button" data-i18n="send">Send</button>
             </div>
           </section>
         </div>
