@@ -1,4 +1,5 @@
-const els = (id) => document.getElementById(id);
+// public/app.js
+const el = (id) => document.getElementById(id);
 
 let me = null;
 let socket = null;
@@ -6,6 +7,8 @@ let socket = null;
 let currentConversationId = null;
 let currentFriend = null;
 let lastRenderedMessageId = null;
+
+const presenceCache = new Map(); // userId -> { online, lastSeenAt }
 
 async function api(path, opts = {}) {
   const res = await fetch(path, {
@@ -18,17 +21,17 @@ async function api(path, opts = {}) {
 }
 
 function showAuth() {
-  els("auth").classList.remove("hidden");
-  els("main").classList.add("hidden");
+  el("auth").style.display = "flex";
+  el("main").style.display = "none";
 }
 
 function showMain() {
-  els("auth").classList.add("hidden");
-  els("main").classList.remove("hidden");
+  el("auth").style.display = "none";
+  el("main").style.display = "flex";
 }
 
 function setMsg(id, text) {
-  els(id).textContent = text || "";
+  el(id).textContent = text || "";
 }
 
 function fmtTime(ts) {
@@ -45,12 +48,13 @@ function escapeHtml(s) {
     .replaceAll("'", "&#039;");
 }
 
-function renderMessage(m) {
+function bubbleNode(m) {
   const div = document.createElement("div");
-  div.className = "msg " + (m.senderUserId === me.id ? "mine" : "theirs");
-  const body = m.deleted ? "<i>(deleted)</i>" : escapeHtml(m.body);
+  div.className = "bubble " + (m.senderUserId === me.id ? "out" : "in");
 
+  const body = m.deleted ? "<i>(deleted)</i>" : escapeHtml(m.body);
   const seen = (m.senderUserId === me.id && m.readAt) ? `Seen ${fmtTime(m.readAt)}` : "";
+
   div.innerHTML = `
     <div>${body}</div>
     <div class="meta">
@@ -61,132 +65,152 @@ function renderMessage(m) {
   return div;
 }
 
-const presenceCache = new Map(); // userId -> { online, lastSeenAt }
-
 async function refreshFriends() {
   const data = await api("/api/friends");
-  renderIncoming(data.incoming);
-  renderFriends(data.friends);
+  renderIncoming(data.incoming || []);
+  renderFriends(data.friends || []);
 }
 
 function renderIncoming(list) {
-  const box = els("incoming");
+  const box = el("incoming");
   box.innerHTML = "";
+
   if (!list.length) {
-    box.innerHTML = `<p class="hint">No incoming requests.</p>`;
+    box.innerHTML = `<div style="color:rgba(255,255,255,.55); font-size:13px;">No incoming requests.</div>`;
     return;
   }
+
   list.forEach(r => {
     const row = document.createElement("div");
-    row.className = "row";
+    row.className = "item";
     row.innerHTML = `
-      <div>
-        <div><b>${escapeHtml(r.displayName)}</b></div>
-        <small>${escapeHtml(r.loginId)}</small>
+      <div class="itemLeft">
+        <div class="itemName">${escapeHtml(r.displayName)}</div>
+        <div class="itemMeta">${escapeHtml(r.loginId)}</div>
       </div>
-      <div class="actions">
-        <button data-a="accept">Accept</button>
-        <button data-a="reject">Reject</button>
+      <div class="itemBtns">
+        <button class="miniBtn" data-a="accept">Accept</button>
+        <button class="miniBtn" data-a="reject">Reject</button>
       </div>
     `;
+
     row.querySelector('[data-a="accept"]').onclick = async () => {
-      await api("/api/friends/respond", { method: "POST", body: JSON.stringify({ requestId: r.requestId, accept: true }) });
+      await api("/api/friends/respond", {
+        method: "POST",
+        body: JSON.stringify({ requestId: r.requestId, accept: true })
+      });
       await refreshFriends();
     };
+
     row.querySelector('[data-a="reject"]').onclick = async () => {
-      await api("/api/friends/respond", { method: "POST", body: JSON.stringify({ requestId: r.requestId, accept: false }) });
+      await api("/api/friends/respond", {
+        method: "POST",
+        body: JSON.stringify({ requestId: r.requestId, accept: false })
+      });
       await refreshFriends();
     };
+
     box.appendChild(row);
   });
 }
 
 function renderFriends(list) {
-  const box = els("friends");
+  const box = el("friends");
   box.innerHTML = "";
+
   if (!list.length) {
-    box.innerHTML = `<p class="hint">No friends yet. Search and add.</p>`;
+    box.innerHTML = `<div style="color:rgba(255,255,255,.55); font-size:13px;">No friends yet. Search and add.</div>`;
     return;
   }
 
   list.forEach(f => {
     const p = presenceCache.get(f.id) || { online: false, lastSeenAt: null };
-    const dot = `<span class="onlineDot ${p.online ? "online" : ""}"></span>`;
+    const dotClass = p.online ? "dot online" : "dot";
     const status = p.online ? "Online" : (p.lastSeenAt ? `Last seen ${new Date(p.lastSeenAt).toLocaleString()}` : "Offline");
 
     const row = document.createElement("div");
-    row.className = "row";
+    row.className = "item";
     row.innerHTML = `
-      <div>
-        <div>${dot}<b>${escapeHtml(f.displayName)}</b></div>
-        <small>${escapeHtml(f.loginId)} • ${escapeHtml(status)}</small>
+      <div class="itemLeft">
+        <div class="itemName"><span class="${dotClass}"></span>${escapeHtml(f.displayName)}</div>
+        <div class="itemMeta">${escapeHtml(f.loginId)} • ${escapeHtml(status)}</div>
       </div>
-      <div class="actions">
-        <button>Chat</button>
+      <div class="itemBtns">
+        <button class="miniBtn" data-a="chat">Chat</button>
       </div>
     `;
-    row.querySelector("button").onclick = () => openChatWithFriend(f);
+
+    row.querySelector('[data-a="chat"]').onclick = () => openChatWithFriend(f);
     box.appendChild(row);
   });
 }
 
 async function searchUsers() {
-  const q = els("search_q").value.trim();
+  const q = el("search_q").value.trim();
   if (!q) return;
 
   const data = await api(`/api/users/search?q=${encodeURIComponent(q)}`);
-  const box = els("results");
+  const box = el("results");
   box.innerHTML = "";
 
-  if (!data.users.length) {
-    box.innerHTML = `<p class="hint">No results.</p>`;
+  if (!data.users?.length) {
+    box.innerHTML = `<div style="color:rgba(255,255,255,.55); font-size:13px;">No results.</div>`;
     return;
   }
 
   data.users.forEach(u => {
     const row = document.createElement("div");
-    row.className = "row";
+    row.className = "item";
     row.innerHTML = `
-      <div>
-        <div><b>${escapeHtml(u.displayName)}</b></div>
-        <small>${escapeHtml(u.loginId)}</small>
+      <div class="itemLeft">
+        <div class="itemName">${escapeHtml(u.displayName)}</div>
+        <div class="itemMeta">${escapeHtml(u.loginId)}</div>
       </div>
-      <div class="actions">
-        <button>Add</button>
+      <div class="itemBtns">
+        <button class="miniBtn" data-a="add">Add</button>
       </div>
     `;
-    row.querySelector("button").onclick = async () => {
-      await api("/api/friends/request", { method: "POST", body: JSON.stringify({ toUserId: u.id }) });
+
+    row.querySelector('[data-a="add"]').onclick = async () => {
+      await api("/api/friends/request", {
+        method: "POST",
+        body: JSON.stringify({ toUserId: u.id })
+      });
       alert("Friend request sent.");
     };
+
     box.appendChild(row);
   });
 }
 
 async function openChatWithFriend(friend) {
   currentFriend = friend;
-  els("chat_title").textContent = `Chat with ${friend.displayName}`;
-  els("typing").textContent = "";
+  el("chatTitle").textContent = `Chat with ${friend.displayName}`;
+  el("typing").textContent = "";
 
-  const conv = await api("/api/conversations/open", { method: "POST", body: JSON.stringify({ friendUserId: friend.id }) });
+  const conv = await api("/api/conversations/open", {
+    method: "POST",
+    body: JSON.stringify({ friendUserId: friend.id })
+  });
+
   currentConversationId = conv.conversationId;
   lastRenderedMessageId = null;
 
   await loadMessages();
 
   const p = presenceCache.get(friend.id);
-  els("chat_status").textContent = p?.online ? "Online" : "Offline";
+  el("chatStatus").textContent = p?.online ? "Online" : "Offline";
 }
 
 async function loadMessages() {
   if (!currentConversationId) return;
 
-  const data = await api(`/api/messages?conversationId=${currentConversationId}&limit=50`);
-  const box = els("messages");
+  const data = await api(`/api/messages?conversationId=${currentConversationId}&limit=60`);
+  const box = el("messages");
   box.innerHTML = "";
 
-  data.messages.forEach(m => {
-    box.appendChild(renderMessage(m));
+  (data.messages || []).forEach(m => {
+    box.appendChild(bubbleNode(m));
     lastRenderedMessageId = m.id;
   });
 
@@ -204,7 +228,7 @@ function connectSocket() {
     presenceCache.set(p.userId, { online: p.online, lastSeenAt: p.lastSeenAt });
     refreshFriends().catch(() => {});
     if (currentFriend && currentFriend.id === p.userId) {
-      els("chat_status").textContent = p.online ? "Online" : "Offline";
+      el("chatStatus").textContent = p.online ? "Online" : "Offline";
     }
   });
 
@@ -216,14 +240,14 @@ function connectSocket() {
     if (!currentFriend || !currentConversationId) return;
     if (t.conversationId !== currentConversationId) return;
     if (t.userId !== currentFriend.id) return;
-    els("typing").textContent = t.isTyping ? `${currentFriend.displayName} is typing…` : "";
+    el("typing").textContent = t.isTyping ? `${currentFriend.displayName} is typing…` : "";
   });
 
   socket.on("message_received", (m) => {
     if (m.conversationId !== currentConversationId) return;
 
-    const box = els("messages");
-    box.appendChild(renderMessage(m));
+    const box = el("messages");
+    box.appendChild(bubbleNode(m));
     box.scrollTop = box.scrollHeight;
     lastRenderedMessageId = m.id;
 
@@ -244,100 +268,113 @@ function emitTyping(isTyping) {
   socket.emit("typing", { conversationId: currentConversationId, isTyping });
 }
 
-async function sendMessage() {
-  const text = els("msg_input").value.trim();
-  if (!text || !currentConversationId) return;
+function bindComposer() {
+  const input = el("msg_input");
 
-  els("msg_input").value = "";
+  el("btn_send").onclick = () => sendMessage().catch(e => alert(e.message));
+
+  input.addEventListener("keypress", (e) => {
+    if (e.key === "Enter") sendMessage().catch(err => alert(err.message));
+  });
+
+  input.addEventListener("input", () => {
+    if (!currentConversationId) return;
+    emitTyping(true);
+    clearTimeout(typingTimer);
+    typingTimer = setTimeout(() => emitTyping(false), 1200);
+  });
+}
+
+async function sendMessage() {
+  if (!currentConversationId) return alert("Select a friend first.");
+  const input = el("msg_input");
+  const text = input.value.trim();
+  if (!text) return;
+
+  input.value = "";
   emitTyping(false);
 
   socket.emit("send_message", { conversationId: currentConversationId, text });
 }
 
-// ---------- boot ----------
+function bindAuth() {
+  el("btn_register").onclick = async () => {
+    try {
+      setMsg("r_msg", "");
+      const loginId = el("r_login").value.trim();
+      const password = el("r_pass").value;
+      const displayName = el("r_name").value.trim();
+
+      const data = await api("/api/register", {
+        method: "POST",
+        body: JSON.stringify({ loginId, password, displayName })
+      });
+
+      me = data.user;
+      showMain();
+      fillMe();
+      await refreshFriends();
+      connectSocket();
+    } catch (e) {
+      setMsg("r_msg", e.message);
+    }
+  };
+
+  el("btn_login").onclick = async () => {
+    try {
+      setMsg("l_msg", "");
+      const loginId = el("l_login").value.trim();
+      const password = el("l_pass").value;
+
+      const data = await api("/api/login", {
+        method: "POST",
+        body: JSON.stringify({ loginId, password })
+      });
+
+      me = data.user;
+      showMain();
+      fillMe();
+      await refreshFriends();
+      connectSocket();
+    } catch (e) {
+      setMsg("l_msg", e.message);
+    }
+  };
+
+  el("btn_logout").onclick = async () => {
+    await api("/api/logout", { method: "POST" });
+    location.reload();
+  };
+
+  el("btn_search").onclick = () => searchUsers().catch(e => alert(e.message));
+  el("search_q").addEventListener("keypress", (e) => {
+    if (e.key === "Enter") searchUsers().catch(err => alert(err.message));
+  });
+}
+
+function fillMe() {
+  el("meName").textContent = me?.displayName || "—";
+  el("meId").textContent = me ? `@${me.loginId}` : "—";
+}
+
 async function boot() {
+  bindAuth();
+  bindComposer();
+
   try {
     const data = await api("/api/me");
-    if (!data.user) return showAuth();
-
+    if (!data.user) {
+      showAuth();
+      return;
+    }
     me = data.user;
-    els("me").textContent = `Logged in as: ${me.displayName} (${me.loginId})`;
     showMain();
-
+    fillMe();
     await refreshFriends();
     connectSocket();
   } catch {
     showAuth();
   }
 }
-
-// ---------- UI bindings ----------
-els("btn_register").onclick = async () => {
-  try {
-    setMsg("r_msg", "");
-    const loginId = els("r_login").value.trim();
-    const password = els("r_pass").value;
-    const displayName = els("r_name").value.trim();
-
-    const data = await api("/api/register", {
-      method: "POST",
-      body: JSON.stringify({ loginId, password, displayName })
-    });
-
-    me = data.user;
-    els("me").textContent = `Logged in as: ${me.displayName} (${me.loginId})`;
-    showMain();
-
-    await refreshFriends();
-    connectSocket();
-  } catch (e) {
-    setMsg("r_msg", e.message);
-  }
-};
-
-els("btn_login").onclick = async () => {
-  try {
-    setMsg("l_msg", "");
-    const loginId = els("l_login").value.trim();
-    const password = els("l_pass").value;
-
-    const data = await api("/api/login", {
-      method: "POST",
-      body: JSON.stringify({ loginId, password })
-    });
-
-    me = data.user;
-    els("me").textContent = `Logged in as: ${me.displayName} (${me.loginId})`;
-    showMain();
-
-    await refreshFriends();
-    connectSocket();
-  } catch (e) {
-    setMsg("l_msg", e.message);
-  }
-};
-
-els("btn_logout").onclick = async () => {
-  await api("/api/logout", { method: "POST" });
-  location.reload();
-};
-
-els("btn_search").onclick = () => searchUsers().catch(err => alert(err.message));
-els("search_q").addEventListener("keypress", (e) => {
-  if (e.key === "Enter") searchUsers().catch(err => alert(err.message));
-});
-
-els("btn_send").onclick = () => sendMessage().catch(err => alert(err.message));
-
-els("msg_input").addEventListener("input", () => {
-  if (!currentConversationId) return;
-  emitTyping(true);
-  clearTimeout(typingTimer);
-  typingTimer = setTimeout(() => emitTyping(false), 1200);
-});
-
-els("msg_input").addEventListener("keypress", (e) => {
-  if (e.key === "Enter") sendMessage().catch(err => alert(err.message));
-});
 
 boot();
