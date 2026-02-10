@@ -9,8 +9,14 @@ body { margin: 0; background: #f6f7fb; color: #111; }
   padding: 12px; margin: 12px 0;
 }
 
-button { cursor: pointer; padding: 10px 12px; border-radius: 10px; border: 1px solid #ddd; background: #111; color: #fff; }
-input { width: 100%; padding: 10px; border-radius: 10px; border: 1px solid #ddd; margin: 6px 0; background: #fff; }
+button {
+  cursor: pointer; padding: 10px 12px; border-radius: 10px;
+  border: 1px solid #ddd; background: #111; color: #fff;
+}
+input {
+  width: 100%; padding: 10px; border-radius: 10px;
+  border: 1px solid #ddd; margin: 6px 0; background: #fff;
+}
 
 header {
   display: flex; justify-content: space-between; align-items: center;
@@ -21,7 +27,10 @@ header .search { display: flex; gap: 8px; width: 50%; }
 header .search input { margin: 0; }
 
 .grid { display: grid; grid-template-columns: 330px 1fr; gap: 12px; margin-top: 12px; }
-aside { background: #fff; border: 1px solid #e7e7ef; border-radius: 12px; padding: 12px; height: calc(100vh - 140px); overflow: auto; }
+aside {
+  background: #fff; border: 1px solid #e7e7ef; border-radius: 12px;
+  padding: 12px; height: calc(100vh - 140px); overflow: auto;
+}
 aside h3 { margin: 10px 0 6px; }
 
 .row {
@@ -48,5 +57,7 @@ aside h3 { margin: 10px 0 6px; }
 .typing { padding: 0 12px 10px; font-size: 12px; opacity: .7; min-height: 18px; }
 
 .hint { margin: 6px 0 0; font-size: 13px; opacity: .8; }
+
 .onlineDot { width: 10px; height: 10px; border-radius: 50%; display: inline-block; margin-right: 6px; background: #bbb; }
 .online { background: #2ecc71; }
+
