@@ -1,6 +1,127 @@
 // public/app.js
 const el = (id) => document.getElementById(id);
 
+// -------------------------
+// i18n (browser language + localStorage override)
+// -------------------------
+const I18N = {
+  en: {
+    app_name: "pChat",
+    tagline: "iMessage-style UI • 1:1 DM • friends • receipts",
+    register: "Register",
+    create_account: "Create account",
+    login: "Login",
+    login_btn: "Login",
+    logout: "Logout",
+    search_btn: "Search",
+    incoming: "Incoming Requests",
+    friends: "Friends",
+    results: "Search Results",
+    select_friend: "Select a friend",
+    send: "Send",
+
+    // placeholders
+    login_id_ph: "Login ID (username/email)",
+    login_id_ph2: "Login ID",
+    display_name_ph: "Display name (optional)",
+    password_new_ph: "Password (min 8 chars)",
+    password_ph: "Password",
+    search_ph: "Search users…",
+    message_ph: "Type a message…",
+
+    // runtime strings
+    no_incoming: "No incoming requests.",
+    no_friends: "No friends yet. Search and add.",
+    no_results: "No results.",
+    friend_request_sent: "Friend request sent.",
+    select_friend_first: "Select a friend first.",
+    typing: (name) => `${name} is typing…`,
+    chat_with: (name) => `Chat with ${name}`,
+    online: "Online",
+    offline: "Offline",
+    last_seen: (dt) => `Last seen ${dt}`
+  },
+  ja: {
+    app_name: "pChat",
+    tagline: "iMessage風UI • 1:1 DM • フレンド • 既読",
+    register: "登録",
+    create_account: "アカウント作成",
+    login: "ログイン",
+    login_btn: "ログイン",
+    logout: "ログアウト",
+    search_btn: "検索",
+    incoming: "受信リクエスト",
+    friends: "フレンド",
+    results: "検索結果",
+    select_friend: "相手を選択してください",
+    send: "送信",
+
+    // placeholders
+    login_id_ph: "ログインID（ユーザー名/メール）",
+    login_id_ph2: "ログインID",
+    display_name_ph: "表示名（任意）",
+    password_new_ph: "パスワード（8文字以上）",
+    password_ph: "パスワード",
+    search_ph: "ユーザー検索…",
+    message_ph: "メッセージを入力…",
+
+    // runtime strings
+    no_incoming: "受信リクエストはありません。",
+    no_friends: "フレンドがいません。検索して追加してください。",
+    no_results: "該当なし。",
+    friend_request_sent: "フレンド申請を送信しました。",
+    select_friend_first: "先に相手を選択してください。",
+    typing: (name) => `${name} が入力中…`,
+    chat_with: (name) => `${name} とチャット`,
+    online: "オンライン",
+    offline: "オフライン",
+    last_seen: (dt) => `最終オンライン: ${dt}`
+  }
+};
+
+function detectLang() {
+  const saved = localStorage.getItem("ui_lang");
+  if (saved && I18N[saved]) return saved;
+
+  const langs = (navigator.languages && navigator.languages.length)
+    ? navigator.languages
+    : [navigator.language || "en"];
+
+  const primary = (langs[0] || "en").toLowerCase();
+  if (primary.startsWith("ja")) return "ja";
+  return "en";
+}
+
+let LANG = detectLang();
+
+function t(key, ...args) {
+  const dict = I18N[LANG] || I18N.en;
+  const v = dict[key] ?? I18N.en[key] ?? key;
+  return (typeof v === "function") ? v(...args) : v;
+}
+
+function applyI18n() {
+  document.querySelectorAll("[data-i18n]").forEach(n => {
+    n.textContent = t(n.getAttribute("data-i18n"));
+  });
+  document.querySelectorAll("[data-i18n-ph]").forEach(n => {
+    n.setAttribute("placeholder", t(n.getAttribute("data-i18n-ph")));
+  });
+}
+
+function toggleLang() {
+  LANG = (LANG === "ja") ? "en" : "ja";
+  localStorage.setItem("ui_lang", LANG);
+  applyI18n();
+
+  // re-render dynamic sections with translated runtime strings
+  refreshFriends().catch(() => {});
+  refreshChatHeaderStatus();
+}
+
+// -------------------------
+// App state
+// -------------------------
 let me = null;
 let socket = null;
 
@@ -10,6 +131,9 @@ let lastRenderedMessageId = null;
 
 const presenceCache = new Map(); // userId -> { online, lastSeenAt }
 
+// -------------------------
+// API helper
+// -------------------------
 async function api(path, opts = {}) {
   const res = await fetch(path, {
     headers: { "Content-Type": "application/json" },
@@ -20,6 +144,9 @@ async function api(path, opts = {}) {
   return data;
 }
 
+// -------------------------
+// View helpers
+// -------------------------
 function showAuth() {
   el("auth").style.display = "flex";
   el("main").style.display = "none";
@@ -65,6 +192,9 @@ function bubbleNode(m) {
   return div;
 }
 
+// -------------------------
+// Friends UI
+// -------------------------
 async function refreshFriends() {
   const data = await api("/api/friends");
   renderIncoming(data.incoming || []);
@@ -76,7 +206,7 @@ function renderIncoming(list) {
   box.innerHTML = "";
 
   if (!list.length) {
-    box.innerHTML = `<div style="color:rgba(255,255,255,.55); font-size:13px;">No incoming requests.</div>`;
+    box.innerHTML = `<div style="color:rgba(255,255,255,.55); font-size:13px;">${escapeHtml(t("no_incoming"))}</div>`;
     return;
   }
 
@@ -89,10 +219,14 @@ function renderIncoming(list) {
         <div class="itemMeta">${escapeHtml(r.loginId)}</div>
       </div>
       <div class="itemBtns">
-        <button class="miniBtn" data-a="accept">Accept</button>
-        <button class="miniBtn" data-a="reject">Reject</button>
+        <button class="miniBtn" data-a="accept" type="button">Accept</button>
+        <button class="miniBtn" data-a="reject" type="button">Reject</button>
       </div>
     `;
+
+    // localise button labels
+    row.querySelector('[data-a="accept"]').textContent = (LANG === "ja") ? "承認" : "Accept";
+    row.querySelector('[data-a="reject"]').textContent = (LANG === "ja") ? "拒否" : "Reject";
 
     row.querySelector('[data-a="accept"]').onclick = async () => {
       await api("/api/friends/respond", {
@@ -119,14 +253,17 @@ function renderFriends(list) {
   box.innerHTML = "";
 
   if (!list.length) {
-    box.innerHTML = `<div style="color:rgba(255,255,255,.55); font-size:13px;">No friends yet. Search and add.</div>`;
+    box.innerHTML = `<div style="color:rgba(255,255,255,.55); font-size:13px;">${escapeHtml(t("no_friends"))}</div>`;
     return;
   }
 
   list.forEach(f => {
     const p = presenceCache.get(f.id) || { online: false, lastSeenAt: null };
     const dotClass = p.online ? "dot online" : "dot";
-    const status = p.online ? "Online" : (p.lastSeenAt ? `Last seen ${new Date(p.lastSeenAt).toLocaleString()}` : "Offline");
+
+    const status = p.online
+      ? t("online")
+      : (p.lastSeenAt ? t("last_seen", new Date(p.lastSeenAt).toLocaleString()) : t("offline"));
 
     const row = document.createElement("div");
     row.className = "item";
@@ -136,15 +273,20 @@ function renderFriends(list) {
         <div class="itemMeta">${escapeHtml(f.loginId)} • ${escapeHtml(status)}</div>
       </div>
       <div class="itemBtns">
-        <button class="miniBtn" data-a="chat">Chat</button>
+        <button class="miniBtn" data-a="chat" type="button">Chat</button>
       </div>
     `;
 
+    row.querySelector('[data-a="chat"]').textContent = (LANG === "ja") ? "チャット" : "Chat";
     row.querySelector('[data-a="chat"]').onclick = () => openChatWithFriend(f);
+
     box.appendChild(row);
   });
 }
 
+// -------------------------
+// Search users UI
+// -------------------------
 async function searchUsers() {
   const q = el("search_q").value.trim();
   if (!q) return;
@@ -154,7 +296,7 @@ async function searchUsers() {
   box.innerHTML = "";
 
   if (!data.users?.length) {
-    box.innerHTML = `<div style="color:rgba(255,255,255,.55); font-size:13px;">No results.</div>`;
+    box.innerHTML = `<div style="color:rgba(255,255,255,.55); font-size:13px;">${escapeHtml(t("no_results"))}</div>`;
     return;
   }
 
@@ -167,25 +309,35 @@ async function searchUsers() {
         <div class="itemMeta">${escapeHtml(u.loginId)}</div>
       </div>
       <div class="itemBtns">
-        <button class="miniBtn" data-a="add">Add</button>
+        <button class="miniBtn" data-a="add" type="button">Add</button>
       </div>
     `;
 
+    row.querySelector('[data-a="add"]').textContent = (LANG === "ja") ? "追加" : "Add";
     row.querySelector('[data-a="add"]').onclick = async () => {
       await api("/api/friends/request", {
         method: "POST",
         body: JSON.stringify({ toUserId: u.id })
       });
-      alert("Friend request sent.");
+      alert(t("friend_request_sent"));
     };
 
     box.appendChild(row);
   });
 }
 
+// -------------------------
+// Chat
+// -------------------------
+function refreshChatHeaderStatus() {
+  if (!currentFriend) return;
+  const p = presenceCache.get(currentFriend.id);
+  el("chatStatus").textContent = p?.online ? t("online") : t("offline");
+}
+
 async function openChatWithFriend(friend) {
   currentFriend = friend;
-  el("chatTitle").textContent = `Chat with ${friend.displayName}`;
+  el("chatTitle").textContent = t("chat_with", friend.displayName);
   el("typing").textContent = "";
 
   const conv = await api("/api/conversations/open", {
@@ -197,9 +349,7 @@ async function openChatWithFriend(friend) {
   lastRenderedMessageId = null;
 
   await loadMessages();
-
-  const p = presenceCache.get(friend.id);
-  el("chatStatus").textContent = p?.online ? "Online" : "Offline";
+  refreshChatHeaderStatus();
 }
 
 async function loadMessages() {
@@ -221,6 +371,9 @@ async function loadMessages() {
   }
 }
 
+// -------------------------
+// Socket.io
+// -------------------------
 function connectSocket() {
   socket = io();
 
@@ -228,7 +381,7 @@ function connectSocket() {
     presenceCache.set(p.userId, { online: p.online, lastSeenAt: p.lastSeenAt });
     refreshFriends().catch(() => {});
     if (currentFriend && currentFriend.id === p.userId) {
-      el("chatStatus").textContent = p.online ? "Online" : "Offline";
+      refreshChatHeaderStatus();
     }
   });
 
@@ -236,11 +389,11 @@ function connectSocket() {
     refreshFriends().catch(() => {});
   });
 
-  socket.on("typing_update", (t) => {
+  socket.on("typing_update", (tEvt) => {
     if (!currentFriend || !currentConversationId) return;
-    if (t.conversationId !== currentConversationId) return;
-    if (t.userId !== currentFriend.id) return;
-    el("typing").textContent = t.isTyping ? `${currentFriend.displayName} is typing…` : "";
+    if (tEvt.conversationId !== currentConversationId) return;
+    if (tEvt.userId !== currentFriend.id) return;
+    el("typing").textContent = tEvt.isTyping ? t("typing", currentFriend.displayName) : "";
   });
 
   socket.on("message_received", (m) => {
@@ -262,10 +415,26 @@ function connectSocket() {
   });
 }
 
+// -------------------------
+// Composer
+// -------------------------
 let typingTimer = null;
+
 function emitTyping(isTyping) {
   if (!socket || !currentConversationId) return;
   socket.emit("typing", { conversationId: currentConversationId, isTyping });
+}
+
+async function sendMessage() {
+  if (!currentConversationId) return alert(t("select_friend_first"));
+  const input = el("msg_input");
+  const text = input.value.trim();
+  if (!text) return;
+
+  input.value = "";
+  emitTyping(false);
+
+  socket.emit("send_message", { conversationId: currentConversationId, text });
 }
 
 function bindComposer() {
@@ -285,16 +454,12 @@ function bindComposer() {
   });
 }
 
-async function sendMessage() {
-  if (!currentConversationId) return alert("Select a friend first.");
-  const input = el("msg_input");
-  const text = input.value.trim();
-  if (!text) return;
-
-  input.value = "";
-  emitTyping(false);
-
-  socket.emit("send_message", { conversationId: currentConversationId, text });
+// -------------------------
+// Auth / navbar
+// -------------------------
+function fillMe() {
+  el("meName").textContent = me?.displayName || "—";
+  el("meId").textContent = me ? `@${me.loginId}` : "—";
 }
 
 function bindAuth() {
@@ -352,12 +517,22 @@ function bindAuth() {
   });
 }
 
-function fillMe() {
-  el("meName").textContent = me?.displayName || "—";
-  el("meId").textContent = me ? `@${me.loginId}` : "—";
+// -------------------------
+// Language toggle buttons
+// -------------------------
+function bindLangToggle() {
+  const b1 = el("btn_lang");
+  const b2 = el("btn_lang_main");
+  if (b1) b1.onclick = toggleLang;
+  if (b2) b2.onclick = toggleLang;
 }
 
+// -------------------------
+// Boot
+// -------------------------
 async function boot() {
+  applyI18n();
+  bindLangToggle();
   bindAuth();
   bindComposer();
 
