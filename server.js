@@ -6,13 +6,13 @@ const bcrypt = require("bcrypt");
 const session = require("express-session");
 const SQLiteStore = require("connect-sqlite3")(session);
 const { Server } = require("socket.io");
-const { db, getOrCreateConversation, normalisePair } = require("./db");
+const { db, getOrCreateConversation } = require("./db");
 
 const app = express();
 const server = http.createServer(app);
 const io = new Server(server);
 
-// --- Middleware ---
+// ---------- middleware ----------
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
@@ -24,16 +24,21 @@ const sessionMiddleware = session({
   cookie: {
     httpOnly: true,
     sameSite: "lax",
-    secure: false // set true if behind HTTPS only (Render uses HTTPS; keep lax for simplicity)
+    secure: false
   }
 });
 
 app.use(sessionMiddleware);
 
-// Serve front-end
+// ---------- static hosting ----------
 app.use(express.static(path.join(__dirname, "public")));
 
-// --- Auth helpers ---
+// IMPORTANT: ensures "/" works even if static config fails
+app.get("/", (req, res) => {
+  res.sendFile(path.join(__dirname, "public", "index.html"));
+});
+
+// ---------- helpers ----------
 function requireAuth(req, res, next) {
   if (!req.session.user) return res.status(401).json({ error: "Not logged in" });
   next();
@@ -43,16 +48,12 @@ function safeUser(u) {
   return { id: u.id, loginId: u.login_id, displayName: u.display_name };
 }
 
-// --- REST: Register ---
+// ---------- auth ----------
 app.post("/api/register", async (req, res) => {
   const { loginId, password, displayName } = req.body;
 
-  if (!loginId || !password) {
-    return res.status(400).json({ error: "loginId and password required" });
-  }
-  if (String(password).length < 8) {
-    return res.status(400).json({ error: "Password must be at least 8 characters" });
-  }
+  if (!loginId || !password) return res.status(400).json({ error: "loginId and password required" });
+  if (String(password).length < 8) return res.status(400).json({ error: "Password must be at least 8 characters" });
 
   const name = (displayName && String(displayName).trim()) || loginId;
 
@@ -72,7 +73,6 @@ app.post("/api/register", async (req, res) => {
   res.json({ user: req.session.user });
 });
 
-// --- REST: Login ---
 app.post("/api/login", async (req, res) => {
   const { loginId, password } = req.body;
   if (!loginId || !password) return res.status(400).json({ error: "Missing fields" });
@@ -87,17 +87,15 @@ app.post("/api/login", async (req, res) => {
   res.json({ user: req.session.user });
 });
 
-// --- REST: Logout ---
 app.post("/api/logout", (req, res) => {
   req.session.destroy(() => res.json({ ok: true }));
 });
 
-// --- REST: Me ---
 app.get("/api/me", (req, res) => {
   res.json({ user: req.session.user || null });
 });
 
-// --- REST: Search users ---
+// ---------- users search ----------
 app.get("/api/users/search", requireAuth, (req, res) => {
   const q = String(req.query.q || "").trim();
   if (!q) return res.json({ users: [] });
@@ -115,7 +113,7 @@ app.get("/api/users/search", requireAuth, (req, res) => {
   });
 });
 
-// --- REST: Friend request send ---
+// ---------- friends ----------
 app.post("/api/friends/request", requireAuth, (req, res) => {
   const { toUserId } = req.body;
   const fromId = req.session.user.id;
@@ -127,29 +125,24 @@ app.post("/api/friends/request", requireAuth, (req, res) => {
   if (!target) return res.status(404).json({ error: "User not found" });
 
   const now = Date.now();
-  // Insert or update
   const existing = db.prepare(
     "SELECT * FROM friend_requests WHERE from_user_id=? AND to_user_id=?"
   ).get(fromId, toId);
 
   if (existing) {
     if (existing.status === "accepted") return res.status(409).json({ error: "Already friends" });
-    db.prepare(
-      "UPDATE friend_requests SET status='pending', updated_at=? WHERE id=?"
-    ).run(now, existing.id);
+    db.prepare("UPDATE friend_requests SET status='pending', updated_at=? WHERE id=?")
+      .run(now, existing.id);
   } else {
     db.prepare(
       "INSERT INTO friend_requests (from_user_id, to_user_id, status, created_at, updated_at) VALUES (?, ?, 'pending', ?, ?)"
     ).run(fromId, toId, now, now);
   }
 
-  // Notify target if online (via Socket.IO)
   notifyUser(toId, "friend_request_update", {});
-
   res.json({ ok: true });
 });
 
-// --- REST: Friend request respond ---
 app.post("/api/friends/respond", requireAuth, (req, res) => {
   const { requestId, accept } = req.body;
   const myId = req.session.user.id;
@@ -162,7 +155,7 @@ app.post("/api/friends/respond", requireAuth, (req, res) => {
   const newStatus = accept ? "accepted" : "rejected";
   db.prepare("UPDATE friend_requests SET status=?, updated_at=? WHERE id=?").run(newStatus, now, fr.id);
 
-  // If accepted, also ensure reciprocal relationship exists (optional but handy)
+  // Reciprocal row for convenient queries
   if (accept) {
     const reciprocal = db.prepare(
       "SELECT * FROM friend_requests WHERE from_user_id=? AND to_user_id=?"
@@ -173,9 +166,8 @@ app.post("/api/friends/respond", requireAuth, (req, res) => {
         "INSERT INTO friend_requests (from_user_id, to_user_id, status, created_at, updated_at) VALUES (?, ?, 'accepted', ?, ?)"
       ).run(myId, fr.from_user_id, now, now);
     } else if (reciprocal.status !== "accepted") {
-      db.prepare(
-        "UPDATE friend_requests SET status='accepted', updated_at=? WHERE id=?"
-      ).run(now, reciprocal.id);
+      db.prepare("UPDATE friend_requests SET status='accepted', updated_at=? WHERE id=?")
+        .run(now, reciprocal.id);
     }
   }
 
@@ -183,7 +175,6 @@ app.post("/api/friends/respond", requireAuth, (req, res) => {
   res.json({ ok: true });
 });
 
-// --- REST: Get friend list + pending requests ---
 app.get("/api/friends", requireAuth, (req, res) => {
   const myId = req.session.user.id;
 
@@ -214,13 +205,11 @@ app.get("/api/friends", requireAuth, (req, res) => {
   });
 });
 
-// --- REST: Open conversation with friend (create if needed) ---
+// ---------- conversations/messages ----------
 app.post("/api/conversations/open", requireAuth, (req, res) => {
   const myId = req.session.user.id;
-  const { friendUserId } = req.body;
-  const friendId = Number(friendUserId);
+  const friendId = Number(req.body.friendUserId);
 
-  // Must be accepted friend
   const isFriend = db.prepare(
     "SELECT 1 FROM friend_requests WHERE from_user_id=? AND to_user_id=? AND status='accepted'"
   ).get(myId, friendId);
@@ -231,19 +220,15 @@ app.post("/api/conversations/open", requireAuth, (req, res) => {
   res.json({ conversationId: conv.id });
 });
 
-// --- REST: Load messages (paged) ---
 app.get("/api/messages", requireAuth, (req, res) => {
   const myId = req.session.user.id;
   const conversationId = Number(req.query.conversationId);
   const before = Number(req.query.before || Date.now());
   const limit = Math.min(Number(req.query.limit || 50), 100);
 
-  // Ensure membership
   const conv = db.prepare("SELECT * FROM conversations WHERE id=?").get(conversationId);
   if (!conv) return res.status(404).json({ error: "Conversation not found" });
-
-  const [a, b] = [conv.user_a_id, conv.user_b_id];
-  if (myId !== a && myId !== b) return res.status(403).json({ error: "Not allowed" });
+  if (myId !== conv.user_a_id && myId !== conv.user_b_id) return res.status(403).json({ error: "Not allowed" });
 
   const rows = db.prepare(
     `SELECT id, conversation_id, sender_user_id, body, sent_at, read_at, deleted
@@ -253,12 +238,20 @@ app.get("/api/messages", requireAuth, (req, res) => {
      LIMIT ?`
   ).all(conversationId, before, limit);
 
-  res.json({ messages: rows.reverse() });
+  res.json({
+    messages: rows.reverse().map(r => ({
+      id: r.id,
+      conversationId: r.conversation_id,
+      senderUserId: r.sender_user_id,
+      body: r.body,
+      sentAt: r.sent_at,
+      readAt: r.read_at,
+      deleted: r.deleted
+    }))
+  });
 });
 
-// -------------------- Socket.IO with session auth --------------------
-
-// Share express-session with Socket.IO
+// ---------- socket.io session share ----------
 io.use((socket, next) => {
   sessionMiddleware(socket.request, {}, next);
 });
@@ -284,13 +277,10 @@ function isOnline(userId) {
 function notifyUser(userId, event, payload) {
   const set = onlineSockets.get(userId);
   if (!set) return;
-  for (const sid of set) {
-    io.to(sid).emit(event, payload);
-  }
+  for (const sid of set) io.to(sid).emit(event, payload);
 }
 
 function emitPresenceToFriends(userId) {
-  // Send presence updates only to accepted friends
   const friends = db.prepare(
     `SELECT to_user_id AS fid
      FROM friend_requests
@@ -311,15 +301,12 @@ io.on("connection", (socket) => {
   const user = sess && sess.user;
 
   if (!user) {
-    // Not authenticated; disconnect to keep it simple
     socket.disconnect(true);
     return;
   }
 
   const myId = user.id;
   addOnline(myId, socket.id);
-
-  // Inform friends I am online
   emitPresenceToFriends(myId);
 
   socket.on("typing", (data) => {
@@ -366,8 +353,6 @@ io.on("connection", (socket) => {
     };
 
     const otherId = myId === conv.user_a_id ? conv.user_b_id : conv.user_a_id;
-
-    // Real-time to both parties
     notifyUser(otherId, "message_received", message);
     notifyUser(myId, "message_received", message);
   });
@@ -383,7 +368,6 @@ io.on("connection", (socket) => {
     const otherId = myId === conv.user_a_id ? conv.user_b_id : conv.user_a_id;
     const now = Date.now();
 
-    // Mark messages as read where sender is the other user (only 1:1)
     db.prepare(
       `UPDATE messages
        SET read_at=?
@@ -402,13 +386,11 @@ io.on("connection", (socket) => {
 
   socket.on("disconnect", () => {
     removeOnline(myId, socket.id);
-    // Inform friends I am offline if no sockets remain
     emitPresenceToFriends(myId);
   });
 });
 
-// --- Render port ---
+// ---------- Render port ----------
 const PORT = process.env.PORT || 3000;
-server.listen(PORT, () => {
-  console.log(`SERVER RUNNING on :${PORT}`);
-});
+server.listen(PORT, () => console.log(`SERVER RUNNING on :${PORT}`));
+
