@@ -1,99 +1,79 @@
 <!DOCTYPE html>
-<html lang="ja">
+<html lang="en-GB">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Glimpse pChat</title>
-    <link rel="stylesheet" href="style.css">
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1.0" />
+  <title>Mini Messenger</title>
+  <link rel="stylesheet" href="./style.css" />
 </head>
 <body>
-    
-    <!-- 認証画面 (ログイン / 新規登録) -->
-    <div id="auth-screen" class="auth-container">
-        <div class="auth-box glass-panel">
-            <h1 class="nav-logo">Glimpse pChat</h1>
-            
-            <div class="auth-tabs">
-                <button id="tab-login" class="active">ログイン</button>
-                <button id="tab-register">新規登録</button>
-            </div>
-            
-            <!-- ログインフォーム -->
-            <form id="login-form">
-                <input type="text" id="login-id" placeholder="ユーザーID" required>
-                <input type="password" id="login-pass" placeholder="パスワード" required>
-                <button type="submit" class="cta-button full-width">ログイン</button>
-            </form>
+  <div id="app">
+    <div id="auth">
+      <h1>Mini Messenger</h1>
 
-            <!-- 新規登録フォーム -->
-            <form id="register-form" style="display:none;">
-                <input type="text" id="reg-id" placeholder="希望するユーザーID (半角英数)" required>
-                <input type="text" id="reg-name" placeholder="表示名 (ニックネーム)" required>
-                <input type="password" id="reg-pass" placeholder="パスワード" required>
-                <button type="submit" class="cta-button full-width" style="background-color: #34c759;">アカウント作成</button>
-            </form>
-            <p id="auth-error" class="error-msg"></p>
-        </div>
+      <div class="card">
+        <h2>Register</h2>
+        <input id="r_login" placeholder="Login ID (username/email)" />
+        <input id="r_name" placeholder="Display name (optional)" />
+        <input id="r_pass" type="password" placeholder="Password (min 8 chars)" />
+        <button id="btn_register">Register</button>
+        <p class="hint" id="r_msg"></p>
+      </div>
+
+      <div class="card">
+        <h2>Login</h2>
+        <input id="l_login" placeholder="Login ID" />
+        <input id="l_pass" type="password" placeholder="Password" />
+        <button id="btn_login">Login</button>
+        <p class="hint" id="l_msg"></p>
+      </div>
     </div>
 
-    <!-- メインアプリ画面 -->
-    <div id="app-screen" class="app-container" style="display:none;">
-        
-        <!-- サイドバー -->
-        <aside class="sidebar glass-panel">
-            <header class="sidebar-header">
-                <div class="user-profile">
-                    <div class="avatar-circle" id="my-avatar">私</div>
-                    <span id="my-display-name">読み込み中...</span>
-                </div>
-                <button id="add-friend-btn" class="icon-btn" title="友達を追加">＋</button>
-            </header>
+    <div id="main" class="hidden">
+      <header>
+        <div>
+          <div id="me"></div>
+          <button id="btn_logout">Logout</button>
+        </div>
 
-            <div id="search-bar-container" style="display:none;">
-                <input type="text" id="user-search-input" placeholder="ユーザーIDで検索...">
-                <div id="search-results"></div>
-            </div>
+        <div class="search">
+          <input id="search_q" placeholder="Search users (loginId / name)" />
+          <button id="btn_search">Search</button>
+        </div>
+      </header>
 
-            <div class="tabs">
-                <button class="tab-btn active" data-filter="friends">友達</button>
-                <button class="tab-btn" data-filter="requests">承認待ち</button>
-            </div>
+      <div class="grid">
+        <aside>
+          <h3>Incoming Requests</h3>
+          <div id="incoming"></div>
 
-            <ul id="friend-list" class="list-view">
-                <!-- リスト -->
-            </ul>
+          <h3>Friends</h3>
+          <div id="friends"></div>
+
+          <h3>Search Results</h3>
+          <div id="results"></div>
         </aside>
 
-        <!-- チャットエリア -->
-        <main class="chat-area glass-panel">
-            <div id="no-chat-selected" class="empty-state">
-                <h2>おかえりなさい</h2>
-                <p>リストから友達を選んでチャットを開始しましょう。</p>
-            </div>
+        <section class="chat">
+          <div class="chat-head">
+            <div id="chat_title">Select a friend</div>
+            <div id="chat_status"></div>
+          </div>
 
-            <div id="chat-interface" style="display:none;">
-                <header class="chat-header">
-                    <h3 id="chat-with-name">User</h3>
-                    <span id="chat-presence" class="presence-indicator">オフライン</span>
-                </header>
+          <div id="messages" class="messages"></div>
 
-                <div id="message-container" class="messages-scroll">
-                    <!-- メッセージ -->
-                </div>
+          <div class="typing" id="typing"></div>
 
-                <div class="typing-indicator" id="typing-indicator">
-                    <span></span><span></span><span></span>
-                </div>
-
-                <form id="message-form" class="message-input-area">
-                    <input type="text" id="message-input" placeholder="メッセージを入力..." autocomplete="off">
-                    <button type="submit" class="send-btn">↑</button>
-                </form>
-            </div>
-        </main>
+          <div class="composer">
+            <input id="msg_input" placeholder="Type a message…" />
+            <button id="btn_send">Send</button>
+          </div>
+        </section>
+      </div>
     </div>
+  </div>
 
-    <script src="/socket.io/socket.io.js"></script>
-    <script src="script.js"></script>
+  <script src="/socket.io/socket.io.js"></script>
+  <script src="./app.js"></script>
 </body>
 </html>
