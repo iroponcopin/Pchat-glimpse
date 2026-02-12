@@ -4,6 +4,8 @@ import cookieParser from 'cookie-parser';
 import dotenv from 'dotenv';
 import { createServer } from 'http';
 import { Server } from 'socket.io';
+import path from 'path';
+import { fileURLToPath } from 'url';
 import authRoutes from './routes/auth.js';
 import conversationRoutes from './routes/conversations.js';
 import messageRoutes from './routes/messages.js';
@@ -38,6 +40,16 @@ app.use('/api/messages', messageRoutes);
 
 // Socket.io
 setupSocket(io);
+
+// Serve static files in production
+if (process.env.NODE_ENV === 'production') {
+    const __dirname = path.dirname(fileURLToPath(import.meta.url));
+    app.use(express.static(path.join(__dirname, '../../client/dist')));
+
+    app.get('*', (req, res) => {
+        res.sendFile(path.resolve(__dirname, '../../client/dist', 'index.html'));
+    });
+}
 
 const PORT = process.env.PORT || 3000;
 
