@@ -17,7 +17,7 @@ const langDict = {
   en: {
     login_title: "pChat Login", login_btn: "Sign In", or: "or", register_btn: "Create Account",
     login_id_ph: "Login ID", password_ph: "Password", new_id_ph: "New ID", display_name_ph: "Display Name",
-    edit: "Edit", messages_title: "Messages", search_ph: "Search",
+    edit: "Edit", messages_title: "Messages", search_ph: "Search", search_directory: "Search Directory for",
     back: "Back", empty_chat: "iMessage", imessage_ph: "iMessage",
     new_message: "New Message", cancel: "Cancel", to: "To:",
     incoming_call: "FaceTime Video", decline: "Decline", accept: "Accept"
@@ -25,7 +25,7 @@ const langDict = {
   ja: {
     login_title: "pChatログイン", login_btn: "サインイン", or: "または", register_btn: "アカウント作成",
     login_id_ph: "ログインID", password_ph: "パスワード", new_id_ph: "新規ID", display_name_ph: "表示名",
-    edit: "編集", messages_title: "メッセージ", search_ph: "検索",
+    edit: "編集", messages_title: "メッセージ", search_ph: "検索", search_directory: "ディレクトリ検索: ",
     back: "戻る", empty_chat: "メッセージなし", imessage_ph: "iMessage",
     new_message: "新規メッセージ", cancel: "キャンセル", to: "宛先:",
     incoming_call: "FaceTimeビデオ", decline: "拒否", accept: "応答"
@@ -93,15 +93,46 @@ function showMain() {
   el('meName').textContent = me.displayName;
   el('meId').textContent = `@${me.loginId}`;
 
-  // SEARCH: Filter existing friends
+  // MAIN SEARCH BAR LOGIC
+  // Filters local list AND offers global search if needed
   el('filter_friends').onkeyup = (e) => {
     const term = e.target.value.toLowerCase();
-    document.querySelectorAll('.friend-row').forEach(row => {
-      row.style.display = row.innerText.toLowerCase().includes(term) ? 'flex' : 'none';
+    const rows = document.querySelectorAll('.friend-row');
+    let hasResult = false;
+    
+    rows.forEach(row => {
+      if(row.innerText.toLowerCase().includes(term)) {
+        row.style.display = 'flex';
+        hasResult = true;
+      } else {
+        row.style.display = 'none';
+      }
     });
+
+    // Show "Search Directory" option if user is typing
+    if (term.length > 0) {
+      el('global_search_option').classList.remove('hidden');
+      el('btn_global_search').innerHTML = `🔍 <span data-lang="search_directory">Search Directory for</span> "<b>${e.target.value}</b>"`;
+    } else {
+      el('global_search_option').classList.add('hidden');
+    }
   };
 
-  // NEW MESSAGE: Search for new users
+  // Clicking the "Search Directory" suggestion
+  el('btn_global_search').onclick = () => {
+    const term = el('filter_friends').value;
+    el('searchModal').classList.remove('hidden');
+    el('search_q').value = term;
+    el('filter_friends').value = ''; // Clear main bar
+    el('global_search_option').classList.add('hidden');
+    
+    // Trigger the search in the modal immediately
+    el('search_q').focus();
+    // Dispatch a fake event to trigger the keyup handler
+    el('search_q').dispatchEvent(new Event('keyup'));
+  };
+
+  // NEW MESSAGE MODAL
   el('btn_compose').onclick = () => {
     el('searchModal').classList.remove('hidden');
     el('search_q').value = '';
@@ -110,11 +141,15 @@ function showMain() {
   };
   el('btn_close_search').onclick = () => el('searchModal').classList.add('hidden');
 
+  // SERVER SEARCH (IN MODAL)
   el('search_q').onkeyup = async (e) => {
     const q = e.target.value;
     if (q.length < 1) { el('searchResults').innerHTML = ''; return; }
+    
+    // Call API
     const res = await fetch(`/api/users/search?q=${encodeURIComponent(q)}`);
     const data = await res.json();
+    
     el('searchResults').innerHTML = data.users.length === 0 ? 
       '<div style="padding:15px; color:#888;">No users found</div>' :
       data.users.map(u => `
