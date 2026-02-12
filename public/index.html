@@ -1,357 +1,93 @@
 <!DOCTYPE html>
-<html lang="en-GB">
+<html lang="en">
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1.0,viewport-fit=cover" />
-  <meta name="theme-color" content="#0b0c10" />
   <title>pChat</title>
-
-  <style>
-    :root{
-      --bg: #0b0c10;
-      --panel: rgba(255,255,255,.08);
-      --panel2: rgba(255,255,255,.12);
-      --text: rgba(255,255,255,.92);
-      --muted: rgba(255,255,255,.65);
-      --hairline: rgba(255,255,255,.10);
-      --bubble-in: rgba(255,255,255,.12);
-      --bubble-out: #0A84FF;
-      --shadow: 0 12px 34px rgba(0,0,0,.38);
-      --r: 18px;
-    }
-    *{ box-sizing:border-box; }
-    html,body{ height:100%; }
-    body{
-      margin:0;
-      font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text","SF Pro Display",system-ui,Segoe UI,Roboto,sans-serif;
-      background:
-        radial-gradient(1200px 700px at 20% -10%, rgba(10,132,255,.18), transparent 60%),
-        radial-gradient(900px 600px at 90% 0%, rgba(175,82,222,.16), transparent 55%),
-        var(--bg);
-      color: var(--text);
-      -webkit-font-smoothing: antialiased;
-      text-rendering: optimizeLegibility;
-      overflow:hidden;
-    }
-
-    #app{ height:100%; display:flex; justify-content:center; }
-    .wrap{ width: min(1120px, 100%); height:100%; padding: 10px; display:flex; flex-direction:column; gap:10px; }
-
-    .glass{
-      background: linear-gradient(180deg, rgba(255,255,255,.10), rgba(255,255,255,.07));
-      border:1px solid var(--hairline);
-      box-shadow: var(--shadow);
-      backdrop-filter: blur(18px);
-    }
-
-    /* Auth */
-    #auth{ flex:1; display:flex; flex-direction:column; gap:10px; }
-    .titleRow{ display:flex; align-items:center; justify-content:space-between; padding:12px 14px; border-radius: 20px; }
-    .brand{ font-weight:800; letter-spacing:.2px; }
-    .sub{ color: var(--muted); font-size: 13px; }
-
-    .card{ border-radius: 20px; padding: 14px; }
-    h2{ margin: 0 0 10px; font-size: 16px; }
-    .hint{ margin: 8px 0 0; font-size: 13px; color: var(--muted); }
-
-    input{
-      width:100%;
-      padding: 12px 12px;
-      border-radius: 14px;
-      border:1px solid var(--hairline);
-      background: rgba(255,255,255,.08);
-      color: var(--text);
-      outline:none;
-      margin: 6px 0;
-    }
-    input::placeholder{ color: rgba(255,255,255,.45); }
-    input:focus{
-      border-color: rgba(10,132,255,.55);
-      box-shadow: 0 0 0 4px rgba(10,132,255,.18);
-    }
-
-    button{
-      width:100%;
-      border:1px solid var(--hairline);
-      background: rgba(255,255,255,.10);
-      color: var(--text);
-      padding: 11px 12px;
-      border-radius: 14px;
-      cursor:pointer;
-    }
-    button:hover{ background: rgba(255,255,255,.14); }
-    button:active{ transform: translateY(1px); }
-
-    .row2{ display:grid; grid-template-columns: 1fr 1fr; gap:10px; }
-
-    /* Main */
-    #main{ flex:1; display:none; flex-direction:column; gap:10px; min-height:0; }
-
-    .topbar{
-      display:flex;
-      align-items:center;
-      justify-content:space-between;
-      gap:10px;
-      padding: 12px 12px;
-      border-radius: 20px;
-    }
-    .meBlock{ display:flex; flex-direction:column; gap:2px; min-width:0; }
-    #meName{ font-weight:800; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
-    #meId{ font-size: 12px; color: var(--muted); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
-
-    .barActions{ display:flex; gap:8px; align-items:center; }
-    .chipBtn{
-      width:auto;
-      padding: 10px 12px;
-      border-radius: 999px;
-      background: rgba(255,255,255,.10);
-      border:1px solid var(--hairline);
-      color: var(--text);
-      cursor:pointer;
-      white-space:nowrap;
-    }
-    .chipBtn.primary{
-      background: rgba(10,132,255,.18);
-      border-color: rgba(10,132,255,.25);
-    }
-
-    .layout{ flex:1; display:grid; grid-template-columns: 360px 1fr; gap:10px; min-height:0; }
-
-    /* Sidebar */
-    .sidebar{ border-radius: 20px; padding: 12px; min-height:0; overflow:auto; }
-    .sectionTitle{ margin: 12px 0 8px; font-size: 13px; color: var(--muted); letter-spacing:.2px; }
-    .searchRow{ display:flex; gap:8px; align-items:center; }
-    .searchRow input{ margin:0; }
-    .searchRow .chipBtn{ padding: 10px 12px; }
-
-    .item{
-      display:flex;
-      justify-content:space-between;
-      align-items:center;
-      gap:10px;
-      padding: 10px;
-      border-radius: 16px;
-      border:1px solid var(--hairline);
-      background: rgba(255,255,255,.06);
-      margin: 8px 0;
-    }
-    .itemLeft{ min-width:0; }
-    .itemName{ font-weight:800; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
-    .itemMeta{ font-size: 12px; color: var(--muted); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
-    .itemBtns{ display:flex; gap:8px; }
-    .miniBtn{ width:auto; padding: 9px 10px; border-radius: 12px; }
-
-    .dot{
-      width: 10px; height:10px; border-radius:999px; display:inline-block; margin-right:8px;
-      background: rgba(255,255,255,.35);
-      box-shadow: 0 0 0 3px rgba(255,255,255,.08);
-      vertical-align:middle;
-    }
-    .dot.online{
-      background: #30D158;
-      box-shadow: 0 0 0 3px rgba(48,209,88,.18);
-    }
-
-    /* Chat */
-    .chat{
-      position:relative;
-      border-radius: 20px;
-      min-height:0;
-      overflow:hidden;
-      display:flex;
-      flex-direction:column;
-    }
-    .chatHead{
-      display:flex;
-      justify-content:space-between;
-      align-items:center;
-      gap:10px;
-      padding: 12px;
-      border-bottom:1px solid var(--hairline);
-      background: rgba(0,0,0,.10);
-    }
-    #chatTitle{ font-weight:900; }
-    #chatStatus{ font-size: 12px; color: var(--muted); }
-
-    .msgs{
-      flex:1;
-      overflow:auto;
-      padding: 14px 12px 92px;
-      display:flex;
-      flex-direction:column;
-      gap:8px;
-      scroll-behavior:smooth;
-    }
-    .bubble{
-      max-width: 78%;
-      padding: 10px 12px;
-      border-radius: 18px;
-      line-height: 1.35;
-      font-size: 15px;
-      word-break: break-word;
-    }
-    .out{
-      align-self:flex-end;
-      background: var(--bubble-out);
-      color:#fff;
-      border-bottom-right-radius: 6px;
-      box-shadow: 0 8px 18px rgba(10,132,255,.18);
-    }
-    .in{
-      align-self:flex-start;
-      background: var(--bubble-in);
-      border: 1px solid var(--hairline);
-      border-bottom-left-radius: 6px;
-    }
-    .meta{
-      margin-top: 6px;
-      display:flex;
-      justify-content:space-between;
-      gap:10px;
-      font-size: 11px;
-      color: rgba(255,255,255,.75);
-      opacity: .9;
-    }
-
-    .typing{
-      padding: 0 12px 10px;
-      font-size: 12px;
-      color: var(--muted);
-      min-height: 18px;
-    }
-
-    .composer{
-      position:absolute;
-      left:0; right:0; bottom:0;
-      padding: 10px 10px calc(10px + env(safe-area-inset-bottom));
-      border-top:1px solid var(--hairline);
-      background: rgba(0,0,0,.18);
-      backdrop-filter: blur(18px);
-      display:flex;
-      gap:8px;
-      align-items:center;
-    }
-    .composer input{
-      margin:0;
-      border-radius: 999px;
-      padding: 12px 14px;
-      background: rgba(255,255,255,.10);
-    }
-    .composer .chipBtn{
-      border-radius: 999px;
-      padding: 11px 14px;
-      width:auto;
-    }
-
-    /* Mobile: single-column */
-    @media (max-width: 860px){
-      .wrap{ padding: 0; gap:0; }
-      .topbar{
-        border-radius:0;
-        border-left:0; border-right:0;
-        position: sticky; top:0; z-index:10;
-        margin:0;
-      }
-      .layout{ grid-template-columns: 1fr; gap: 10px; padding: 10px; }
-      .sidebar{ max-height: 40svh; }
-      .chat{ height: 56svh; }
-    }
-    @media (max-width: 420px){
-      .bubble{ max-width: 86%; }
-      .barActions{ gap:6px; }
-      .chipBtn{ padding: 10px 10px; }
-    }
-  </style>
+  <link rel="stylesheet" href="style.css">
 </head>
-
 <body>
   <div id="app">
-    <div class="wrap">
+    
+    <div id="callOverlay" class="hidden">
+      <div class="video-grid">
+        <video id="remoteVideo" autoplay playsinline></video>
+        <video id="localVideo" autoplay playsinline muted></video>
+      </div>
+      <div class="call-controls">
+        <div id="callStatus" style="color:white; font-weight:bold;">Connecting...</div>
+        <button id="btn_end_call" class="danger-btn">End Call / 切断</button>
+      </div>
+    </div>
 
-      <!-- AUTH -->
-      <section id="auth">
-        <div class="titleRow glass">
-          <div>
-            <div class="brand" data-i18n="app_name">pChat</div>
-            <div class="sub" data-i18n="tagline">iMessage-style UI • 1:1 DM • friends • receipts</div>
-          </div>
-          <div class="barActions">
-            <button id="btn_lang" class="chipBtn" type="button">EN/日本語</button>
-          </div>
+    <div id="incomingCallModal" class="hidden modal-wrap">
+      <div class="modal card">
+        <h3>Incoming Call / 着信</h3>
+        <p id="callerName">User is calling...</p>
+        <div class="row-center">
+          <button id="btn_answer" class="chipBtn primary">Answer / 応答</button>
+          <button id="btn_decline" class="danger-btn">Decline / 拒否</button>
         </div>
+      </div>
+    </div>
 
-        <div class="row2">
-          <div class="card glass">
-            <h2 data-i18n="register">Register</h2>
-            <input id="r_login" data-i18n-ph="login_id_ph" placeholder="Login ID (username/email)" autocomplete="username" />
-            <input id="r_name" data-i18n-ph="display_name_ph" placeholder="Display name (optional)" autocomplete="nickname" />
-            <input id="r_pass" type="password" data-i18n-ph="password_new_ph" placeholder="Password (min 8 chars)" autocomplete="new-password" />
-            <button id="btn_register" class="chipBtn primary" style="width:100%;" data-i18n="create_account">Create account</button>
-            <p class="hint" id="r_msg"></p>
-          </div>
-
-          <div class="card glass">
-            <h2 data-i18n="login">Login</h2>
-            <input id="l_login" data-i18n-ph="login_id_ph2" placeholder="Login ID" autocomplete="username" />
-            <input id="l_pass" type="password" data-i18n-ph="password_ph" placeholder="Password" autocomplete="current-password" />
-            <button id="btn_login" class="chipBtn primary" style="width:100%;" data-i18n="login_btn">Login</button>
-            <p class="hint" id="l_msg"></p>
+    <div class="wrap">
+      <section id="auth">
+        <div class="card glass">
+          <h2>Login</h2>
+          <input id="l_login" placeholder="Login ID" />
+          <input id="l_pass" type="password" placeholder="Password" />
+          <button id="btn_login" class="chipBtn primary">Login</button>
+          <div style="margin-top:10px; font-size:12px; color:#aaa;">
+            Or Register:
+            <input id="r_login" placeholder="New ID" style="margin-top:5px;" />
+            <input id="r_name" placeholder="Display Name" />
+            <input id="r_pass" type="password" placeholder="Password" />
+            <button id="btn_register" class="chipBtn">Create Account</button>
           </div>
         </div>
       </section>
 
-      <!-- MAIN -->
-      <section id="main">
+      <section id="main" class="hidden">
         <header class="topbar glass">
           <div class="meBlock">
-            <div id="meName">—</div>
-            <div id="meId">—</div>
+            <div id="meName">...</div>
+            <div id="meId" style="font-size:11px; opacity:0.7;">...</div>
           </div>
-
           <div class="barActions">
-            <button id="btn_lang_main" class="chipBtn" type="button">EN/日本語</button>
-            <button id="btn_logout" class="chipBtn" type="button" data-i18n="logout">Logout</button>
+            <button id="btn_start_call" class="chipBtn hidden" title="Video Call">📹</button>
+            <button id="btn_logout" class="chipBtn">Logout</button>
           </div>
         </header>
 
         <div class="layout">
-          <!-- Sidebar -->
           <aside class="sidebar glass">
             <div class="searchRow">
-              <input id="search_q" data-i18n-ph="search_ph" placeholder="Search users…" />
-              <button id="btn_search" class="chipBtn" type="button" data-i18n="search_btn">Search</button>
+              <input id="search_q" placeholder="Search users..." />
+              <button id="btn_search" class="chipBtn">Go</button>
             </div>
-
-            <div class="sectionTitle" data-i18n="incoming">Incoming Requests</div>
-            <div id="incoming"></div>
-
-            <div class="sectionTitle" data-i18n="friends">Friends</div>
+            <div id="searchResults"></div>
+            <div class="sectionTitle">Friends</div>
             <div id="friends"></div>
-
-            <div class="sectionTitle" data-i18n="results">Search Results</div>
-            <div id="results"></div>
           </aside>
 
-          <!-- Chat -->
           <section class="chat glass">
             <div class="chatHead">
-              <div>
-                <div id="chatTitle" data-i18n="select_friend">Select a friend</div>
-                <div id="chatStatus"></div>
-              </div>
+              <span id="chatTitle">Select a friend</span>
             </div>
-
+            
             <div id="messages" class="msgs"></div>
-            <div id="typing" class="typing"></div>
 
             <div class="composer">
-              <input id="msg_input" data-i18n-ph="message_ph" placeholder="iMessage vibe… type here" />
-              <button id="btn_send" class="chipBtn primary" type="button" data-i18n="send">Send</button>
+              <input type="file" id="file_input" accept="image/*" style="display:none" />
+              <button id="btn_photo" class="iconBtn" title="Send Photo">📷</button>
+              
+              <input id="msg_input" placeholder="Message..." />
+              <button id="btn_send" class="chipBtn primary">Send</button>
             </div>
           </section>
         </div>
       </section>
-
     </div>
   </div>
 
