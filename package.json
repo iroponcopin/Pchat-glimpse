@@ -1,0 +1,10 @@
+{
+  "name": "messenger-clone-root",
+  "private": true,
+  "scripts": {
+    "install-all": "npm install && cd client && npm install && cd ../server && npm install",
+    "build": "cd client && npm run build",
+    "start": "cd server && npm start",
+    "render-build": "npm run install-all && npm run build && cd server && npx prisma generate && npx prisma migrate deploy"
+  }
+}
