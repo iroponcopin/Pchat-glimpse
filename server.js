@@ -1,4 +1,3 @@
-// server.js
 const express = require("express");
 const http = require("http");
 const path = require("path");
@@ -14,8 +13,7 @@ const app = express();
 const server = http.createServer(app);
 const io = new Server(server);
 
-// --- Persistence Config / 永続化設定 ---
-// Use DATA_DIR for uploads and sessions / アップロードとセッションにDATA_DIRを使用
+// --- Persistence Config ---
 const DATA_DIR = process.env.DATA_DIR || __dirname;
 const UPLOAD_DIR = path.join(DATA_DIR, "uploads");
 
@@ -25,7 +23,6 @@ if (!fs.existsSync(UPLOAD_DIR)) fs.mkdirSync(UPLOAD_DIR, { recursive: true });
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
-// Save sessions to DATA_DIR / セッションをDATA_DIRに保存
 const sessionMiddleware = session({
   store: new SQLiteStore({ db: "sessions.db", dir: DATA_DIR }),
   secret: process.env.SESSION_SECRET || "secret",
@@ -35,12 +32,9 @@ const sessionMiddleware = session({
 });
 app.use(sessionMiddleware);
 
-// --- Static Files ---
 app.use(express.static(path.join(__dirname, "public")));
-// Serve uploads from the persistent directory / 永続ディレクトリからアップロードファイルを配信
 app.use('/uploads', express.static(UPLOAD_DIR));
 
-// --- Upload Logic (Multer) ---
 const storage = multer.diskStorage({
   destination: (req, file, cb) => cb(null, UPLOAD_DIR),
   filename: (req, file, cb) => {
@@ -48,7 +42,7 @@ const storage = multer.diskStorage({
     cb(null, unique + path.extname(file.originalname));
   }
 });
-const upload = multer({ storage, limits: { fileSize: 10 * 1024 * 1024 } }); // 10MB limit
+const upload = multer({ storage, limits: { fileSize: 10 * 1024 * 1024 } });
 
 // --- Helpers ---
 function requireAuth(req, res, next) {
@@ -59,7 +53,6 @@ function requireAuth(req, res, next) {
 // --- Routes ---
 app.get("/", (req, res) => res.sendFile(path.join(__dirname, "public", "index.html")));
 
-// Auth
 app.post("/api/register", async (req, res) => {
   const { loginId, password, displayName } = req.body;
   const hash = await bcrypt.hash(password, 12);
@@ -79,7 +72,6 @@ app.post("/api/login", async (req, res) => {
 });
 
 app.get("/api/me", (req, res) => res.json({ user: req.session.user || null }));
-app.post("/api/logout", (req, res) => req.session.destroy(() => res.json({ ok: true })));
 
 // Friends
 app.get("/api/friends", requireAuth, (req, res) => {
@@ -111,9 +103,14 @@ app.post("/api/friends/respond", requireAuth, (req, res) => {
   res.json({ ok: true });
 });
 
+// FIXED SEARCH ROUTE
 app.get("/api/users/search", requireAuth, (req, res) => {
-  const q = `%${req.query.q}%`;
-  const users = db.prepare("SELECT id, login_id, display_name FROM users WHERE login_id LIKE ? OR display_name LIKE ? LIMIT 10").all(q, q);
+  const query = req.query.q;
+  if (!query || query.trim().length === 0) return res.json({ users: [] });
+  
+  const q = `%${query}%`;
+  const myId = req.session.user.id;
+  const users = db.prepare("SELECT id, login_id, display_name FROM users WHERE (login_id LIKE ? OR display_name LIKE ?) AND id != ? LIMIT 10").all(q, q, myId);
   res.json({ users });
 });
 
@@ -132,12 +129,7 @@ app.get("/api/messages", requireAuth, (req, res) => {
   const { conversationId, before } = req.query;
   const limit = 30;
   const timeLimit = before || Date.now() + 10000;
-  
-  const messages = db.prepare(`
-    SELECT * FROM messages 
-    WHERE conversation_id=? AND sent_at < ? 
-    ORDER BY sent_at DESC LIMIT ?
-  `).all(conversationId, timeLimit, limit);
+  const messages = db.prepare(`SELECT * FROM messages WHERE conversation_id=? AND sent_at < ? ORDER BY sent_at DESC LIMIT ?`).all(conversationId, timeLimit, limit);
 
   res.json({ messages: messages.map(m => ({
     id: m.id,
@@ -153,7 +145,7 @@ app.get("/api/messages", requireAuth, (req, res) => {
 // --- Socket.io ---
 io.use((socket, next) => sessionMiddleware(socket.request, {}, next));
 
-const onlineSockets = new Map(); // userId -> Set(socketId)
+const onlineSockets = new Map();
 
 function notifyUser(userId, event, data) {
   const sockets = onlineSockets.get(userId);
@@ -168,26 +160,21 @@ io.on("connection", (socket) => {
   if (!onlineSockets.has(myId)) onlineSockets.set(myId, new Set());
   onlineSockets.get(myId).add(socket.id);
 
-  // Messaging
   socket.on("send_message", (data) => {
     const { conversationId, text, mediaUrl, msgType } = data;
     const now = Date.now();
     const type = msgType || 'text';
-    
-    // Find partner
     const conv = db.prepare("SELECT * FROM conversations WHERE id=?").get(conversationId);
     if (!conv) return;
     const otherId = (conv.user_a_id === myId) ? conv.user_b_id : conv.user_a_id;
 
     const info = db.prepare("INSERT INTO messages (conversation_id, sender_user_id, body, media_url, msg_type, sent_at) VALUES (?, ?, ?, ?, ?, ?)").run(conversationId, myId, text || '', mediaUrl || null, type, now);
-    
     const msg = { id: info.lastInsertRowid, conversationId, senderUserId: myId, body: text, mediaUrl, msgType: type, sentAt: now };
     
     notifyUser(otherId, "message_received", msg);
     notifyUser(myId, "message_received", msg);
   });
 
-  // WebRTC Video Call Signaling
   socket.on("call_user", ({ toUserId, offer }) => notifyUser(toUserId, "incoming_call", { fromUserId: myId, offer }));
   socket.on("call_answer", ({ toUserId, answer }) => notifyUser(toUserId, "call_answered", { fromUserId: myId, answer }));
   socket.on("ice_candidate", ({ toUserId, candidate }) => notifyUser(toUserId, "remote_ice_candidate", { fromUserId: myId, candidate }));
@@ -203,4 +190,5 @@ io.on("connection", (socket) => {
 });
 
 const PORT = process.env.PORT || 3000;
+server.listen(PORT, () => console.log(`Server running on ${PORT}`));
 server.listen(PORT, () => console.log(`Server running on ${PORT}`));
