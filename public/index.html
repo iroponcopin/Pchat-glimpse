@@ -2,93 +2,152 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width,initial-scale=1.0,viewport-fit=cover" />
-  <title>pChat</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
+  <title>Messages</title>
   <link rel="stylesheet" href="style.css">
-</head>
+  </head>
 <body>
   <div id="app">
     
+    <section id="auth" class="full-screen-center">
+      <div class="ios-card">
+        <h2 data-lang="login_title">iMessage Login</h2>
+        <div class="input-group">
+          <input id="l_login" data-placeholder="login_id_ph" placeholder="Login ID" />
+          <input id="l_pass" type="password" data-placeholder="password_ph" placeholder="Password" />
+        </div>
+        <button id="btn_login" class="ios-btn primary" data-lang="login_btn">Sign In</button>
+        
+        <div class="divider" data-lang="or">or</div>
+        
+        <div class="input-group">
+          <input id="r_login" data-placeholder="new_id_ph" placeholder="New ID" />
+          <input id="r_name" data-placeholder="display_name_ph" placeholder="Display Name" />
+          <input id="r_pass" type="password" data-placeholder="password_ph" placeholder="Password" />
+        </div>
+        <button id="btn_register" class="ios-btn secondary" data-lang="register_btn">Create Account</button>
+      </div>
+    </section>
+
+    <section id="main" class="hidden ios-split-view">
+      
+      <aside class="sidebar">
+        <header class="ios-header">
+          <button class="text-btn" data-lang="edit">Edit</button>
+          <h1 data-lang="messages_title">Messages</h1>
+          <button id="btn_compose" class="icon-btn" title="New Message">
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path>
+              <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path>
+            </svg>
+          </button>
+        </header>
+
+        <div class="search-wrapper">
+          <div class="ios-search-bar">
+            <span class="search-icon">🔍</span>
+            <input type="text" id="filter_friends" data-placeholder="search_ph" placeholder="Search" />
+          </div>
+        </div>
+
+        <div id="friends" class="scroll-list">
+          </div>
+
+        <div class="sidebar-footer">
+          <div class="user-info">
+             <span id="meName"></span>
+             <span id="meId" class="sub-text"></span>
+          </div>
+          <button id="btn_logout" class="text-btn danger" data-lang="logout">Logout</button>
+        </div>
+      </aside>
+
+      <section class="chat-view" id="chat_view">
+        <header class="ios-header glass-header">
+          <button id="btn_back" class="text-btn back-btn hidden">
+            <span class="chevron">‹</span> <span data-lang="back">Back</span>
+          </button>
+          
+          <div class="chat-meta">
+            <div class="chat-avatar" id="headerAvatar">?</div>
+            <div class="chat-names">
+              <span id="chatTitle" class="chat-name">Select a chat</span>
+              <span id="chatStatus" class="chat-sub"></span>
+            </div>
+          </div>
+
+          <div class="header-actions">
+            <button id="btn_start_call" class="icon-btn hidden">
+              <svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor"><path d="M21 6h-7.59l3.29-3.29L16 2l-4 4-4-4-.71.71L10.59 6H3a2 2 0 0 0-2 2v12c0 1.1.9 2 2 2h18c1.1 0 2-.9 2-2V8a2 2 0 0 0-2-2zm0 14H3V8h18v12zM9 12c0 1.66 1.34 3 3 3s3-1.34 3-3-1.34-3-3-3-3 1.34-3 3z"/></svg>
+            </button>
+          </div>
+        </header>
+
+        <div id="messages" class="message-area">
+          <div class="empty-state" data-lang="empty_chat">
+            iMessage
+          </div>
+        </div>
+
+        <div id="typing_indicator" class="typing-bubble hidden">
+          <span>•</span><span>•</span><span>•</span>
+        </div>
+
+        <footer class="composer-area">
+          <input type="file" id="file_input" accept="image/*" style="display:none" />
+          <button id="btn_photo" class="app-store-btn">
+            <svg width="24" height="24" fill="#8E8E93" viewBox="0 0 24 24"><path d="M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z"/></svg> </button>
+          
+          <div class="input-pill">
+            <input id="msg_input" data-placeholder="imessage_ph" placeholder="iMessage" />
+            <button id="btn_send" class="send-btn">
+              ↑
+            </button>
+          </div>
+        </footer>
+      </section>
+
+    </section>
+
+    <div id="searchModal" class="modal-overlay hidden">
+      <div class="modal-content">
+        <div class="modal-header">
+          <span data-lang="new_message">New Message</span>
+          <button id="btn_close_search" class="text-btn" data-lang="cancel">Cancel</button>
+        </div>
+        <div class="modal-body">
+          <div class="to-field">
+            <span data-lang="to">To:</span>
+            <input id="search_q" type="text" />
+          </div>
+          <div id="searchResults" class="results-list"></div>
+        </div>
+      </div>
+    </div>
+
     <div id="callOverlay" class="hidden">
       <div class="video-grid">
         <video id="remoteVideo" autoplay playsinline></video>
         <video id="localVideo" autoplay playsinline muted></video>
       </div>
       <div class="call-controls">
-        <div id="callStatus" style="color:white; font-weight:bold;">Connecting...</div>
-        <button id="btn_end_call" class="danger-btn">End Call / 切断</button>
+        <button id="btn_end_call" class="call-btn end">
+          <svg width="30" height="30" viewBox="0 0 24 24" fill="white"><path d="M12 9c-1.6 0-3.15.25-4.6.72v3.1c0 .39-.23.74-.56.9-.98.49-1.87 1.12-2.66 1.85-.18.18-.43.28-.7.28-.28 0-.53-.11-.71-.29L.29 13.08a.996.996 0 0 1 0-1.41C2.74 9.32 6.13 8 9.77 8c1.37 0 2.7.21 3.97.58v-2.06c-1.6-.37-3.25-.52-4.97-.52H8.23C7.4 6 6.5 5 5.5 4 4.5 3 3.5 2 2.5 1 1.5 0 .5-.5 0 0s.5 1 1.5 2 2.5 3 3.5 4 4.5 5 5.5 6 6.5 7 7.5 8 8.23h.54c1.72 0 3.37.15 4.97.52v3.54c1.27-.37 2.6-.58 3.97-.58 3.64 0 7.03 1.32 9.48 3.67.39.39.39 1.03 0 1.42l-2.47 2.47c-.18.18-.43.29-.71.29-.27 0-.52-.11-.7-.28-.79-.74-1.69-1.36-2.67-1.85-.33-.16-.56-.5-.56-.9v-3.1C15.15 9.25 13.6 9 12 9z"/></svg>
+        </button>
       </div>
     </div>
 
-    <div id="incomingCallModal" class="hidden modal-wrap">
-      <div class="modal card">
-        <h3>Incoming Call / 着信</h3>
-        <p id="callerName">User is calling...</p>
-        <div class="row-center">
-          <button id="btn_answer" class="chipBtn primary">Answer / 応答</button>
-          <button id="btn_decline" class="danger-btn">Decline / 拒否</button>
+    <div id="incomingCallModal" class="hidden modal-overlay glass">
+      <div class="ios-alert">
+        <h3 data-lang="incoming_call">FaceTime Video</h3>
+        <p id="callerName">...</p>
+        <div class="alert-actions">
+          <button id="btn_decline" class="alert-btn danger" data-lang="decline">Decline</button>
+          <button id="btn_answer" class="alert-btn safe" data-lang="accept">Accept</button>
         </div>
       </div>
     </div>
 
-    <div class="wrap">
-      <section id="auth">
-        <div class="card glass">
-          <h2>Login</h2>
-          <input id="l_login" placeholder="Login ID" />
-          <input id="l_pass" type="password" placeholder="Password" />
-          <button id="btn_login" class="chipBtn primary">Login</button>
-          <div style="margin-top:10px; font-size:12px; color:#aaa;">
-            Or Register:
-            <input id="r_login" placeholder="New ID" style="margin-top:5px;" />
-            <input id="r_name" placeholder="Display Name" />
-            <input id="r_pass" type="password" placeholder="Password" />
-            <button id="btn_register" class="chipBtn">Create Account</button>
-          </div>
-        </div>
-      </section>
-
-      <section id="main" class="hidden">
-        <header class="topbar glass">
-          <div class="meBlock">
-            <div id="meName">...</div>
-            <div id="meId" style="font-size:11px; opacity:0.7;">...</div>
-          </div>
-          <div class="barActions">
-            <button id="btn_start_call" class="chipBtn hidden" title="Video Call">📹</button>
-            <button id="btn_logout" class="chipBtn">Logout</button>
-          </div>
-        </header>
-
-        <div class="layout">
-          <aside class="sidebar glass">
-            <div class="searchRow">
-              <input id="search_q" placeholder="Search users..." />
-              <button id="btn_search" class="chipBtn">Go</button>
-            </div>
-            <div id="searchResults"></div>
-            <div class="sectionTitle">Friends</div>
-            <div id="friends"></div>
-          </aside>
-
-          <section class="chat glass">
-            <div class="chatHead">
-              <span id="chatTitle">Select a friend</span>
-            </div>
-            
-            <div id="messages" class="msgs"></div>
-
-            <div class="composer">
-              <input type="file" id="file_input" accept="image/*" style="display:none" />
-              <button id="btn_photo" class="iconBtn" title="Send Photo">📷</button>
-              
-              <input id="msg_input" placeholder="Message..." />
-              <button id="btn_send" class="chipBtn primary">Send</button>
-            </div>
-          </section>
-        </div>
-      </section>
-    </div>
   </div>
 
   <script src="/socket.io/socket.io.js"></script>
