@@ -16,7 +16,8 @@ const RTC_CONFIG = { iceServers: [{ urls: "stun:stun.l.google.com:19302" }] };
 // --- LOCALIZATION ---
 const langDict = {
   en: {
-    login_title: "iMessage Login", login_btn: "Sign In", or: "or", register_btn: "Create Account",
+    login_title: "pChat Login", 
+    login_btn: "Sign In", or: "or", register_btn: "Create Account",
     login_id_ph: "Login ID", password_ph: "Password", new_id_ph: "New ID", display_name_ph: "Display Name",
     edit: "Edit", messages_title: "Messages", search_ph: "Search", logout: "Logout",
     back: "Back", empty_chat: "iMessage", imessage_ph: "iMessage",
@@ -25,7 +26,8 @@ const langDict = {
     sent_req: "Request Sent"
   },
   ja: {
-    login_title: "iMessageログイン", login_btn: "サインイン", or: "または", register_btn: "アカウント作成",
+    login_title: "pChatログイン", 
+    login_btn: "サインイン", or: "または", register_btn: "アカウント作成",
     login_id_ph: "ログインID", password_ph: "パスワード", new_id_ph: "新規ID", display_name_ph: "表示名",
     edit: "編集", messages_title: "メッセージ", search_ph: "検索", logout: "ログアウト",
     back: "戻る", empty_chat: "メッセージなし", imessage_ph: "iMessage",
