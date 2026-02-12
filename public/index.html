@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
-  <title>Messages</title>
+  <title>pChat</title>
   <link rel="stylesheet" href="style.css">
 </head>
 <body>
@@ -50,15 +50,19 @@
           </div>
         </div>
 
-        <div id="friends" class="scroll-list">
-          </div>
+        <div id="global_search_option" class="hidden" style="padding: 10px 15px;">
+           <button id="btn_global_search" class="text-btn" style="text-align:left; width:100%;">
+             <span data-lang="search_directory">Search Directory for</span> "..."
+           </button>
+        </div>
+
+        <div id="friends" class="scroll-list"></div>
 
         <div class="sidebar-footer">
           <div class="user-info">
              <span id="meName"></span>
              <span id="meId" class="sub-text"></span>
           </div>
-          <button id="btn_logout" class="text-btn danger" data-lang="logout">Logout</button>
         </div>
       </aside>
 
@@ -71,8 +75,8 @@
           <div class="chat-meta">
             <div class="chat-avatar" id="headerAvatar">?</div>
             <div class="chat-names">
-              <span id="chatTitle" class="chat-name">Select a chat</span>
-              <span id="chatStatus" class="chat-sub"></span>
+              <span id="chatTitle" class="chat-name">...</span>
+              <span id="chatStatus" class="chat-sub">iMessage</span>
             </div>
           </div>
 
@@ -84,13 +88,7 @@
         </header>
 
         <div id="messages" class="message-area">
-          <div class="empty-state" data-lang="empty_chat">
-            iMessage
-          </div>
-        </div>
-
-        <div id="typing_indicator" class="typing-bubble hidden">
-          <span>•</span><span>•</span><span>•</span>
+          <div class="empty-state" data-lang="empty_chat">iMessage</div>
         </div>
 
         <footer class="composer-area">
@@ -101,9 +99,7 @@
           
           <div class="input-pill">
             <input id="msg_input" data-placeholder="imessage_ph" placeholder="iMessage" />
-            <button id="btn_send" class="send-btn">
-              ↑
-            </button>
+            <button id="btn_send" class="send-btn">↑</button>
           </div>
         </footer>
       </section>
@@ -148,7 +144,6 @@
         </div>
       </div>
     </div>
-
   </div>
 
   <script src="/socket.io/socket.io.js"></script>
