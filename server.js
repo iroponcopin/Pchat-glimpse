@@ -55,6 +55,7 @@ app.get("/", (req, res) => res.sendFile(path.join(__dirname, "public", "index.ht
 
 app.post("/api/register", async (req, res) => {
   const { loginId, password, displayName } = req.body;
+  if(!loginId || !password) return res.status(400).json({ error: "Missing fields" });
   const hash = await bcrypt.hash(password, 12);
   try {
     const info = db.prepare("INSERT INTO users (login_id, display_name, password_hash, created_at) VALUES (?, ?, ?, ?)").run(loginId, displayName || loginId, hash, Date.now());
@@ -66,12 +67,13 @@ app.post("/api/register", async (req, res) => {
 app.post("/api/login", async (req, res) => {
   const { loginId, password } = req.body;
   const user = db.prepare("SELECT * FROM users WHERE login_id=?").get(loginId);
-  if (!user || !(await bcrypt.compare(password, user.password_hash))) return res.status(401).json({ error: "Invalid" });
+  if (!user || !(await bcrypt.compare(password, user.password_hash))) return res.status(401).json({ error: "Invalid credentials" });
   req.session.user = { id: user.id, loginId: user.login_id, displayName: user.display_name };
   res.json({ user: req.session.user });
 });
 
 app.get("/api/me", (req, res) => res.json({ user: req.session.user || null }));
+app.post("/api/logout", (req, res) => req.session.destroy(() => res.json({ ok: true })));
 
 // Friends
 app.get("/api/friends", requireAuth, (req, res) => {
@@ -84,6 +86,7 @@ app.get("/api/friends", requireAuth, (req, res) => {
 app.post("/api/friends/request", requireAuth, (req, res) => {
   const { toUserId } = req.body;
   const myId = req.session.user.id;
+  if(Number(toUserId) === myId) return res.status(400).json({ error: "Cannot add self" });
   db.prepare("INSERT OR IGNORE INTO friend_requests (from_user_id, to_user_id, status, created_at, updated_at) VALUES (?, ?, 'pending', ?, ?)").run(myId, toUserId, Date.now(), Date.now());
   res.json({ ok: true });
 });
@@ -103,13 +106,14 @@ app.post("/api/friends/respond", requireAuth, (req, res) => {
   res.json({ ok: true });
 });
 
-// FIXED SEARCH ROUTE
+// SEARCH: Find users (excluding self)
 app.get("/api/users/search", requireAuth, (req, res) => {
   const query = req.query.q;
   if (!query || query.trim().length === 0) return res.json({ users: [] });
   
   const q = `%${query}%`;
   const myId = req.session.user.id;
+  // Search ID or Display Name
   const users = db.prepare("SELECT id, login_id, display_name FROM users WHERE (login_id LIKE ? OR display_name LIKE ?) AND id != ? LIMIT 10").all(q, q, myId);
   res.json({ users });
 });
@@ -190,5 +194,4 @@ io.on("connection", (socket) => {
 });
 
 const PORT = process.env.PORT || 3000;
-server.listen(PORT, () => console.log(`Server running on ${PORT}`));
 server.listen(PORT, () => console.log(`Server running on ${PORT}`));
