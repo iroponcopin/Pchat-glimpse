@@ -1,12 +1,9 @@
-// This is your Prisma schema file,
-// learn more about it in the docs: https://pris.ly/d/prisma-schema
-
 generator client {
   provider = "prisma-client-js"
 }
 
 datasource db {
-  provider = "sqlite"
+  provider = "postgresql"  // <--- CHANGE THIS from "sqlite"
   url      = env("DATABASE_URL")
 }
 
@@ -14,7 +11,8 @@ model User {
   id        String   @id @default(uuid())
   username  String   @unique
   password  String
-  avatarUrl String?  
+  displayName String?
+  avatarUrl String?
   createdAt DateTime @default(now())
 
   messages      Message[]
