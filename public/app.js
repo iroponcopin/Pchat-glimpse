@@ -1,555 +1,295 @@
-// public/app.js
 const el = (id) => document.getElementById(id);
-
-// -------------------------
-// i18n (browser language + localStorage override)
-// -------------------------
-const I18N = {
-  en: {
-    app_name: "pChat",
-    tagline: "private cloud",
-    register: "Register",
-    create_account: "Create account",
-    login: "Login",
-    login_btn: "Login",
-    logout: "Logout",
-    search_btn: "Search",
-    incoming: "Incoming Requests",
-    friends: "Friends",
-    results: "Search Results",
-    select_friend: "Select a friend",
-    send: "Send",
-
-    // placeholders
-    login_id_ph: "Login ID (username/email)",
-    login_id_ph2: "Login ID",
-    display_name_ph: "Display name (optional)",
-    password_new_ph: "Password (min 8 chars)",
-    password_ph: "Password",
-    search_ph: "Search users…",
-    message_ph: "Type a message…",
-
-    // runtime strings
-    no_incoming: "No incoming requests.",
-    no_friends: "No friends yet. Search and add.",
-    no_results: "No results.",
-    friend_request_sent: "Friend request sent.",
-    select_friend_first: "Select a friend first.",
-    typing: (name) => `${name} is typing…`,
-    chat_with: (name) => `Chat with ${name}`,
-    online: "Online",
-    offline: "Offline",
-    last_seen: (dt) => `Last seen ${dt}`
-  },
-  ja: {
-    app_name: "pChat",
-    tagline: "プライベートチャットブラウザ",
-    register: "登録",
-    create_account: "アカウント作成",
-    login: "ログイン",
-    login_btn: "ログイン",
-    logout: "ログアウト",
-    search_btn: "検索",
-    incoming: "受信リクエスト",
-    friends: "フレンド",
-    results: "検索結果",
-    select_friend: "相手を選択してください",
-    send: "送信",
-
-    // placeholders
-    login_id_ph: "ログインID（ユーザー名/メール）",
-    login_id_ph2: "ログインID",
-    display_name_ph: "表示名（任意）",
-    password_new_ph: "パスワード（8文字以上）",
-    password_ph: "パスワード",
-    search_ph: "ユーザー検索…",
-    message_ph: "メッセージを入力…",
-
-    // runtime strings
-    no_incoming: "受信リクエストはありません。",
-    no_friends: "フレンドがいません。検索して追加してください。",
-    no_results: "該当なし。",
-    friend_request_sent: "フレンド申請を送信しました。",
-    select_friend_first: "先に相手を選択してください。",
-    typing: (name) => `${name} が入力中…`,
-    chat_with: (name) => `${name} とチャット`,
-    online: "オンライン",
-    offline: "オフライン",
-    last_seen: (dt) => `最終オンライン: ${dt}`
-  }
-};
-
-function detectLang() {
-  const saved = localStorage.getItem("ui_lang");
-  if (saved && I18N[saved]) return saved;
-
-  const langs = (navigator.languages && navigator.languages.length)
-    ? navigator.languages
-    : [navigator.language || "en"];
-
-  const primary = (langs[0] || "en").toLowerCase();
-  if (primary.startsWith("ja")) return "ja";
-  return "en";
-}
-
-let LANG = detectLang();
-
-function t(key, ...args) {
-  const dict = I18N[LANG] || I18N.en;
-  const v = dict[key] ?? I18N.en[key] ?? key;
-  return (typeof v === "function") ? v(...args) : v;
-}
-
-function applyI18n() {
-  document.querySelectorAll("[data-i18n]").forEach(n => {
-    n.textContent = t(n.getAttribute("data-i18n"));
-  });
-  document.querySelectorAll("[data-i18n-ph]").forEach(n => {
-    n.setAttribute("placeholder", t(n.getAttribute("data-i18n-ph")));
-  });
-}
-
-function toggleLang() {
-  LANG = (LANG === "ja") ? "en" : "ja";
-  localStorage.setItem("ui_lang", LANG);
-  applyI18n();
-
-  // re-render dynamic sections with translated runtime strings
-  refreshFriends().catch(() => {});
-  refreshChatHeaderStatus();
-}
-
-// -------------------------
-// App state
-// -------------------------
 let me = null;
 let socket = null;
-
 let currentConversationId = null;
 let currentFriend = null;
-let lastRenderedMessageId = null;
 
-const presenceCache = new Map(); // userId -> { online, lastSeenAt }
+// Scroll & Pagination / スクロールとページネーション
+let isLoadingHistory = false;
+let earliestMessageTime = null;
 
-// -------------------------
-// API helper
-// -------------------------
-async function api(path, opts = {}) {
-  const res = await fetch(path, {
-    headers: { "Content-Type": "application/json" },
-    ...opts
-  });
-  const data = await res.json().catch(() => ({}));
-  if (!res.ok) throw new Error(data.error || `HTTP ${res.status}`);
-  return data;
-}
+// WebRTC
+let localStream = null;
+let peerConnection = null;
+const RTC_CONFIG = { iceServers: [{ urls: "stun:stun.l.google.com:19302" }] };
 
-// -------------------------
-// View helpers
-// -------------------------
-function showAuth() {
-  el("auth").style.display = "flex";
-  el("main").style.display = "none";
-}
-
-function showMain() {
-  el("auth").style.display = "none";
-  el("main").style.display = "flex";
-}
-
-function setMsg(id, text) {
-  el(id).textContent = text || "";
-}
-
-function fmtTime(ts) {
-  const d = new Date(ts);
-  return d.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
-}
-
-function escapeHtml(s) {
-  return String(s)
-    .replaceAll("&", "&amp;")
-    .replaceAll("<", "&lt;")
-    .replaceAll(">", "&gt;")
-    .replaceAll('"', "&quot;")
-    .replaceAll("'", "&#039;");
-}
-
-function bubbleNode(m) {
-  const div = document.createElement("div");
-  div.className = "bubble " + (m.senderUserId === me.id ? "out" : "in");
-
-  const body = m.deleted ? "<i>(deleted)</i>" : escapeHtml(m.body);
-  const seen = (m.senderUserId === me.id && m.readAt) ? `Seen ${fmtTime(m.readAt)}` : "";
-
-  div.innerHTML = `
-    <div>${body}</div>
-    <div class="meta">
-      <span>${fmtTime(m.sentAt)}</span>
-      <span>${seen}</span>
-    </div>
-  `;
-  return div;
-}
-
-// -------------------------
-// Friends UI
-// -------------------------
-async function refreshFriends() {
-  const data = await api("/api/friends");
-  renderIncoming(data.incoming || []);
-  renderFriends(data.friends || []);
-}
-
-function renderIncoming(list) {
-  const box = el("incoming");
-  box.innerHTML = "";
-
-  if (!list.length) {
-    box.innerHTML = `<div style="color:rgba(255,255,255,.55); font-size:13px;">${escapeHtml(t("no_incoming"))}</div>`;
-    return;
-  }
-
-  list.forEach(r => {
-    const row = document.createElement("div");
-    row.className = "item";
-    row.innerHTML = `
-      <div class="itemLeft">
-        <div class="itemName">${escapeHtml(r.displayName)}</div>
-        <div class="itemMeta">${escapeHtml(r.loginId)}</div>
-      </div>
-      <div class="itemBtns">
-        <button class="miniBtn" data-a="accept" type="button">Accept</button>
-        <button class="miniBtn" data-a="reject" type="button">Reject</button>
-      </div>
-    `;
-
-    // localise button labels
-    row.querySelector('[data-a="accept"]').textContent = (LANG === "ja") ? "承認" : "Accept";
-    row.querySelector('[data-a="reject"]').textContent = (LANG === "ja") ? "拒否" : "Reject";
-
-    row.querySelector('[data-a="accept"]').onclick = async () => {
-      await api("/api/friends/respond", {
-        method: "POST",
-        body: JSON.stringify({ requestId: r.requestId, accept: true })
-      });
-      await refreshFriends();
-    };
-
-    row.querySelector('[data-a="reject"]').onclick = async () => {
-      await api("/api/friends/respond", {
-        method: "POST",
-        body: JSON.stringify({ requestId: r.requestId, accept: false })
-      });
-      await refreshFriends();
-    };
-
-    box.appendChild(row);
-  });
-}
-
-function renderFriends(list) {
-  const box = el("friends");
-  box.innerHTML = "";
-
-  if (!list.length) {
-    box.innerHTML = `<div style="color:rgba(255,255,255,.55); font-size:13px;">${escapeHtml(t("no_friends"))}</div>`;
-    return;
-  }
-
-  list.forEach(f => {
-    const p = presenceCache.get(f.id) || { online: false, lastSeenAt: null };
-    const dotClass = p.online ? "dot online" : "dot";
-
-    const status = p.online
-      ? t("online")
-      : (p.lastSeenAt ? t("last_seen", new Date(p.lastSeenAt).toLocaleString()) : t("offline"));
-
-    const row = document.createElement("div");
-    row.className = "item";
-    row.innerHTML = `
-      <div class="itemLeft">
-        <div class="itemName"><span class="${dotClass}"></span>${escapeHtml(f.displayName)}</div>
-        <div class="itemMeta">${escapeHtml(f.loginId)} • ${escapeHtml(status)}</div>
-      </div>
-      <div class="itemBtns">
-        <button class="miniBtn" data-a="chat" type="button">Chat</button>
-      </div>
-    `;
-
-    row.querySelector('[data-a="chat"]').textContent = (LANG === "ja") ? "チャット" : "Chat";
-    row.querySelector('[data-a="chat"]').onclick = () => openChatWithFriend(f);
-
-    box.appendChild(row);
-  });
-}
-
-// -------------------------
-// Search users UI
-// -------------------------
-async function searchUsers() {
-  const q = el("search_q").value.trim();
-  if (!q) return;
-
-  const data = await api(`/api/users/search?q=${encodeURIComponent(q)}`);
-  const box = el("results");
-  box.innerHTML = "";
-
-  if (!data.users?.length) {
-    box.innerHTML = `<div style="color:rgba(255,255,255,.55); font-size:13px;">${escapeHtml(t("no_results"))}</div>`;
-    return;
-  }
-
-  data.users.forEach(u => {
-    const row = document.createElement("div");
-    row.className = "item";
-    row.innerHTML = `
-      <div class="itemLeft">
-        <div class="itemName">${escapeHtml(u.displayName)}</div>
-        <div class="itemMeta">${escapeHtml(u.loginId)}</div>
-      </div>
-      <div class="itemBtns">
-        <button class="miniBtn" data-a="add" type="button">Add</button>
-      </div>
-    `;
-
-    row.querySelector('[data-a="add"]').textContent = (LANG === "ja") ? "追加" : "Add";
-    row.querySelector('[data-a="add"]').onclick = async () => {
-      await api("/api/friends/request", {
-        method: "POST",
-        body: JSON.stringify({ toUserId: u.id })
-      });
-      alert(t("friend_request_sent"));
-    };
-
-    box.appendChild(row);
-  });
-}
-
-// -------------------------
-// Chat
-// -------------------------
-function refreshChatHeaderStatus() {
-  if (!currentFriend) return;
-  const p = presenceCache.get(currentFriend.id);
-  el("chatStatus").textContent = p?.online ? t("online") : t("offline");
-}
-
-async function openChatWithFriend(friend) {
-  currentFriend = friend;
-  el("chatTitle").textContent = t("chat_with", friend.displayName);
-  el("typing").textContent = "";
-
-  const conv = await api("/api/conversations/open", {
-    method: "POST",
-    body: JSON.stringify({ friendUserId: friend.id })
-  });
-
-  currentConversationId = conv.conversationId;
-  lastRenderedMessageId = null;
-
-  await loadMessages();
-  refreshChatHeaderStatus();
-}
-
-async function loadMessages() {
-  if (!currentConversationId) return;
-
-  const data = await api(`/api/messages?conversationId=${currentConversationId}&limit=60`);
-  const box = el("messages");
-  box.innerHTML = "";
-
-  (data.messages || []).forEach(m => {
-    box.appendChild(bubbleNode(m));
-    lastRenderedMessageId = m.id;
-  });
-
-  box.scrollTop = box.scrollHeight;
-
-  if (lastRenderedMessageId && socket) {
-    socket.emit("mark_read", { conversationId: currentConversationId, upToMessageId: lastRenderedMessageId });
+// --- Boot ---
+async function boot() {
+  const res = await fetch("/api/me");
+  const data = await res.json();
+  if (data.user) {
+    me = data.user;
+    initSocket();
+    showMain();
+    loadFriends();
+  } else {
+    el('auth').classList.remove('hidden');
   }
 }
 
-// -------------------------
-// Socket.io
-// -------------------------
-function connectSocket() {
+function initSocket() {
   socket = io();
 
-  socket.on("presence_update", (p) => {
-    presenceCache.set(p.userId, { online: p.online, lastSeenAt: p.lastSeenAt });
-    refreshFriends().catch(() => {});
-    if (currentFriend && currentFriend.id === p.userId) {
-      refreshChatHeaderStatus();
+  // Receive Message / メッセージ受信
+  socket.on("message_received", (msg) => {
+    if (msg.conversationId === currentConversationId) {
+      appendMessage(msg, true); // true = auto-scroll if at bottom
     }
   });
 
-  socket.on("friend_request_update", () => {
-    refreshFriends().catch(() => {});
-  });
-
-  socket.on("typing_update", (tEvt) => {
-    if (!currentFriend || !currentConversationId) return;
-    if (tEvt.conversationId !== currentConversationId) return;
-    if (tEvt.userId !== currentFriend.id) return;
-    el("typing").textContent = tEvt.isTyping ? t("typing", currentFriend.displayName) : "";
-  });
-
-  socket.on("message_received", (m) => {
-    if (m.conversationId !== currentConversationId) return;
-
-    const box = el("messages");
-    box.appendChild(bubbleNode(m));
-    box.scrollTop = box.scrollHeight;
-    lastRenderedMessageId = m.id;
-
-    if (m.senderUserId !== me.id) {
-      socket.emit("mark_read", { conversationId: currentConversationId, upToMessageId: m.id });
+  // Call Signaling / 通話シグナリング
+  socket.on("incoming_call", async ({ fromUserId, offer }) => {
+    if (confirm("Incoming Call / 着信があります。応答しますか？")) {
+      await startCall(false, fromUserId);
+      await peerConnection.setRemoteDescription(new RTCSessionDescription(offer));
+      const answer = await peerConnection.createAnswer();
+      await peerConnection.setLocalDescription(answer);
+      socket.emit("call_answer", { toUserId: fromUserId, answer });
     }
   });
 
-  socket.on("read_receipt_update", (r) => {
-    if (r.conversationId !== currentConversationId) return;
-    loadMessages().catch(() => {});
-  });
-}
-
-// -------------------------
-// Composer
-// -------------------------
-let typingTimer = null;
-
-function emitTyping(isTyping) {
-  if (!socket || !currentConversationId) return;
-  socket.emit("typing", { conversationId: currentConversationId, isTyping });
-}
-
-async function sendMessage() {
-  if (!currentConversationId) return alert(t("select_friend_first"));
-  const input = el("msg_input");
-  const text = input.value.trim();
-  if (!text) return;
-
-  input.value = "";
-  emitTyping(false);
-
-  socket.emit("send_message", { conversationId: currentConversationId, text });
-}
-
-function bindComposer() {
-  const input = el("msg_input");
-
-  el("btn_send").onclick = () => sendMessage().catch(e => alert(e.message));
-
-  input.addEventListener("keypress", (e) => {
-    if (e.key === "Enter") sendMessage().catch(err => alert(err.message));
+  socket.on("call_answered", async ({ answer }) => {
+    await peerConnection.setRemoteDescription(new RTCSessionDescription(answer));
   });
 
-  input.addEventListener("input", () => {
-    if (!currentConversationId) return;
-    emitTyping(true);
-    clearTimeout(typingTimer);
-    typingTimer = setTimeout(() => emitTyping(false), 1200);
+  socket.on("remote_ice_candidate", async ({ candidate }) => {
+    if (peerConnection) await peerConnection.addIceCandidate(new RTCIceCandidate(candidate));
   });
+
+  socket.on("call_ended", endCallCleanup);
 }
 
-// -------------------------
-// Auth / navbar
-// -------------------------
-function fillMe() {
-  el("meName").textContent = me?.displayName || "—";
-  el("meId").textContent = me ? `@${me.loginId}` : "—";
-}
+// --- UI Actions ---
+function showMain() {
+  el('auth').classList.add('hidden');
+  el('main').classList.remove('hidden');
+  el('meName').textContent = me.displayName;
+  el('meId').textContent = `@${me.loginId}`;
 
-function bindAuth() {
-  el("btn_register").onclick = async () => {
-    try {
-      setMsg("r_msg", "");
-      const loginId = el("r_login").value.trim();
-      const password = el("r_pass").value;
-      const displayName = el("r_name").value.trim();
-
-      const data = await api("/api/register", {
-        method: "POST",
-        body: JSON.stringify({ loginId, password, displayName })
-      });
-
-      me = data.user;
-      showMain();
-      fillMe();
-      await refreshFriends();
-      connectSocket();
-    } catch (e) {
-      setMsg("r_msg", e.message);
-    }
-  };
-
-  el("btn_login").onclick = async () => {
-    try {
-      setMsg("l_msg", "");
-      const loginId = el("l_login").value.trim();
-      const password = el("l_pass").value;
-
-      const data = await api("/api/login", {
-        method: "POST",
-        body: JSON.stringify({ loginId, password })
-      });
-
-      me = data.user;
-      showMain();
-      fillMe();
-      await refreshFriends();
-      connectSocket();
-    } catch (e) {
-      setMsg("l_msg", e.message);
-    }
-  };
-
-  el("btn_logout").onclick = async () => {
-    await api("/api/logout", { method: "POST" });
+  el('btn_logout').onclick = async () => {
+    await fetch("/api/logout", { method: "POST" });
     location.reload();
   };
 
-  el("btn_search").onclick = () => searchUsers().catch(e => alert(e.message));
-  el("search_q").addEventListener("keypress", (e) => {
-    if (e.key === "Enter") searchUsers().catch(err => alert(err.message));
+  // Search
+  el('btn_search').onclick = async () => {
+    const q = el('search_q').value;
+    const res = await fetch(`/api/users/search?q=${q}`);
+    const data = await res.json();
+    el('searchResults').innerHTML = data.users.map(u => `
+      <div style="padding:5px; border-bottom:1px solid #333; display:flex; justify-content:space-between;">
+        <span>${u.displayName}</span>
+        <button onclick="addFriend('${u.id}')" class="chipBtn" style="padding:2px 8px;">Add</button>
+      </div>
+    `).join('');
+  };
+}
+
+window.addFriend = async (id) => {
+  await fetch("/api/friends/request", {
+    method: "POST", headers: {'Content-Type':'application/json'},
+    body: JSON.stringify({ toUserId: id })
   });
+  alert("Request sent / 送信しました");
+};
+
+async function loadFriends() {
+  const res = await fetch("/api/friends");
+  const data = await res.json();
+  
+  // Pending Requests
+  if(data.incoming.length > 0) {
+    data.incoming.forEach(r => {
+      if(confirm(`Accept friend request from ${r.displayName}?`)) {
+        fetch("/api/friends/respond", {
+          method:"POST", headers:{'Content-Type':'application/json'},
+          body: JSON.stringify({ requestId: r.requestId, accept: true })
+        }).then(loadFriends);
+      }
+    });
+  }
+
+  // Active Friends
+  el('friends').innerHTML = data.friends.map(f => `
+    <div onclick="openChat('${f.id}', '${f.displayName}')" 
+         style="padding:10px; background:rgba(255,255,255,0.05); border-radius:8px; cursor:pointer; margin-bottom:5px;">
+      ${f.displayName}
+    </div>
+  `).join('');
 }
 
-// -------------------------
-// Language toggle buttons
-// -------------------------
-function bindLangToggle() {
-  const b1 = el("btn_lang");
-  const b2 = el("btn_lang_main");
-  if (b1) b1.onclick = toggleLang;
-  if (b2) b2.onclick = toggleLang;
-}
-
-// -------------------------
-// Boot
-// -------------------------
-async function boot() {
-  applyI18n();
-  bindLangToggle();
-  bindAuth();
-  bindComposer();
-
-  try {
-    const data = await api("/api/me");
-    if (!data.user) {
-      showAuth();
-      return;
+// --- Chat Logic ---
+window.openChat = async (friendId, name) => {
+  currentFriend = { id: parseInt(friendId), name };
+  el('chatTitle').textContent = name;
+  el('btn_start_call').classList.remove('hidden');
+  
+  const res = await fetch("/api/conversations/open", {
+    method: "POST", headers: {'Content-Type':'application/json'},
+    body: JSON.stringify({ friendUserId: friendId })
+  });
+  const data = await res.json();
+  currentConversationId = data.conversationId;
+  
+  el('messages').innerHTML = '';
+  earliestMessageTime = null;
+  await loadMessages(currentConversationId);
+  
+  // Setup Scroll Listener for History
+  el('messages').onscroll = () => {
+    if (el('messages').scrollTop === 0 && !isLoadingHistory) {
+      loadMessages(currentConversationId, earliestMessageTime);
     }
-    me = data.user;
-    showMain();
-    fillMe();
-    await refreshFriends();
-    connectSocket();
-  } catch {
-    showAuth();
+  };
+};
+
+// Messaging & Smart Scroll
+async function loadMessages(convId, beforeTime = null) {
+  if (isLoadingHistory) return;
+  isLoadingHistory = true;
+
+  const url = `/api/messages?conversationId=${convId}` + (beforeTime ? `&before=${beforeTime}` : '');
+  const res = await fetch(url);
+  const data = await res.json();
+  
+  const box = el('messages');
+  const oldHeight = box.scrollHeight;
+  const oldTop = box.scrollTop;
+
+  if (data.messages.length > 0) {
+    // Update cursor for next fetch
+    earliestMessageTime = data.messages[data.messages.length - 1].sentAt; 
+
+    // Create bubbles (reverse because API returns newest first, but we want oldest at top of this batch)
+    // APIは新しい順で返しますが、このバッチ内では古いものを上にしたいので逆順にします
+    const frag = document.createDocumentFragment();
+    // Use standard loop to prepend correctly
+    for (let i = data.messages.length - 1; i >= 0; i--) {
+      frag.appendChild(createBubble(data.messages[i]));
+    }
+
+    if (beforeTime) {
+      // Prepend to top (Loading History)
+      box.insertBefore(frag, box.firstChild);
+      // Maintain scroll position / スクロール位置を維持
+      box.scrollTop = box.scrollHeight - oldHeight + oldTop;
+    } else {
+      // First Load
+      box.appendChild(frag);
+      box.scrollTop = box.scrollHeight;
+    }
+  }
+  isLoadingHistory = false;
+}
+
+function createBubble(msg) {
+  const div = document.createElement('div');
+  const isMine = msg.senderUserId === me.id;
+  div.className = `bubble ${isMine ? 'mine' : 'theirs'}`;
+  
+  if (msg.msgType === 'image') {
+    div.innerHTML = `<img src="${msg.mediaUrl}" onclick="window.open(this.src)" />`;
+  } else {
+    div.textContent = msg.body;
+  }
+  return div;
+}
+
+function appendMessage(msg, autoScroll) {
+  const box = el('messages');
+  const isNearBottom = box.scrollHeight - box.scrollTop - box.clientHeight < 150;
+  box.appendChild(createBubble(msg));
+  if (autoScroll && (isNearBottom || msg.senderUserId === me.id)) {
+    box.scrollTop = box.scrollHeight;
   }
 }
 
+// Send Actions
+el('btn_send').onclick = () => {
+  const txt = el('msg_input').value;
+  if (!txt) return;
+  socket.emit("send_message", { conversationId: currentConversationId, text: txt });
+  el('msg_input').value = '';
+};
+
+el('btn_photo').onclick = () => el('file_input').click();
+el('file_input').onchange = async () => {
+  const file = el('file_input').files[0];
+  if(!file) return;
+  const formData = new FormData();
+  formData.append("photo", file);
+  
+  const res = await fetch("/api/upload", { method:"POST", body:formData });
+  const data = await res.json();
+  if(data.url) {
+    socket.emit("send_message", { conversationId: currentConversationId, msgType: 'image', mediaUrl: data.url });
+  }
+  el('file_input').value = '';
+};
+
+// --- WebRTC Implementation ---
+el('btn_start_call').onclick = () => startCall(true, currentFriend.id);
+el('btn_end_call').onclick = () => {
+  socket.emit("end_call", { toUserId: currentFriend.id });
+  endCallCleanup();
+};
+
+async function startCall(isCaller, friendId) {
+  el('callOverlay').classList.remove('hidden');
+  try {
+    localStream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
+    el('localVideo').srcObject = localStream;
+  } catch(e) {
+    alert("Camera/Mic error: " + e.message);
+    return;
+  }
+
+  peerConnection = new RTCPeerConnection(RTC_CONFIG);
+  localStream.getTracks().forEach(t => peerConnection.addTrack(t, localStream));
+
+  peerConnection.ontrack = (e) => {
+    el('remoteVideo').srcObject = e.streams[0];
+  };
+
+  peerConnection.onicecandidate = (e) => {
+    if (e.candidate) socket.emit("ice_candidate", { toUserId: friendId, candidate: e.candidate });
+  };
+
+  if (isCaller) {
+    const offer = await peerConnection.createOffer();
+    await peerConnection.setLocalDescription(offer);
+    socket.emit("call_user", { toUserId: friendId, offer });
+  }
+}
+
+function endCallCleanup() {
+  el('callOverlay').classList.add('hidden');
+  if (peerConnection) peerConnection.close();
+  if (localStream) localStream.getTracks().forEach(t => t.stop());
+  peerConnection = null;
+  localStream = null;
+}
+
+// Login/Register bindings omitted for brevity, logic same as before but using the API routes.
+el('btn_login').onclick = async () => {
+  const res = await fetch("/api/login", { 
+    method: "POST", headers: {'Content-Type':'application/json'},
+    body: JSON.stringify({ loginId: el('l_login').value, password: el('l_pass').value })
+  });
+  const data = await res.json();
+  if(data.user) { me = data.user; initSocket(); showMain(); loadFriends(); }
+  else alert(data.error);
+};
+
+el('btn_register').onclick = async () => {
+  const res = await fetch("/api/register", { 
+    method: "POST", headers: {'Content-Type':'application/json'},
+    body: JSON.stringify({ loginId: el('r_login').value, displayName: el('r_name').value, password: el('r_pass').value })
+  });
+  const data = await res.json();
+  if(data.user) { me = data.user; initSocket(); showMain(); loadFriends(); }
+  else alert(data.error);
+};
+
+// Start
 boot();
