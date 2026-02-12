@@ -3,40 +3,50 @@ generator client {
 }
 
 datasource db {
-  provider = "postgresql"  // <--- CHANGE THIS from "sqlite"
+  // [CHANGED] Use postgresql
+  // [変更] postgresql を使用
+  provider = "postgresql"
   url      = env("DATABASE_URL")
 }
 
 model User {
-  id        String   @id @default(uuid())
-  username  String   @unique
-  password  String
+  id          String   @id @default(uuid())
+  username    String   @unique
+  password    String
   displayName String?
-  avatarUrl String?
-  createdAt DateTime @default(now())
+  avatarUrl   String?
+  createdAt   DateTime @default(now())
 
   messages      Message[]
-  conversations Conversation[] @relation("UserConversations")
+  conversations ConversationParticipant[]
 }
 
 model Conversation {
-  id            String    @id @default(uuid())
-  createdAt     DateTime  @default(now())
-  updatedAt     DateTime  @updatedAt
+  id        String   @id @default(uuid())
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt 
+
+  messages     Message[]
+  participants ConversationParticipant[]
+}
+
+model ConversationParticipant {
+  id             String       @id @default(uuid())
+  userId         String
+  conversationId String
+  user           User         @relation(fields: [userId], references: [id])
+  conversation   Conversation @relation(fields: [conversationId], references: [id])
   
-  participants  User[]    @relation("UserConversations")
-  messages      Message[]
+  @@unique([userId, conversationId])
 }
 
 model Message {
   id             String       @id @default(uuid())
-  content        String
-  createdAt      DateTime     @default(now())
-  updatedAt      DateTime     @updatedAt
-  
+  body           String
   senderId       String
-  sender         User         @relation(fields: [senderId], references: [id])
-  
   conversationId String
+  createdAt      DateTime     @default(now())
+  
+  sender         User         @relation(fields: [senderId], references: [id])
   conversation   Conversation @relation(fields: [conversationId], references: [id])
 }
