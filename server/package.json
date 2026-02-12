@@ -11,15 +11,17 @@
     "test": "echo \"Error: no test specified\" && exit 1"
   },
   "dependencies": {
-    "@prisma/client": "5.10.2", 
     "bcryptjs": "^3.0.3",
     "cookie-parser": "^1.4.7",
     "cors": "^2.8.6",
     "dotenv": "^17.2.4",
     "express": "^5.2.1",
     "jsonwebtoken": "^9.0.3",
-    "prisma": "5.10.2",
-    "socket.io": "^4.8.3"
+    "socket.io": "^4.8.3",
+    
+    "_comment": "REMOVE the ^ symbol below / 以下の ^ 記号を削除してください",
+    "@prisma/client": "5.10.2",
+    "prisma": "5.10.2"
   },
   "devDependencies": {
     "nodemon": "^3.1.11"
