@@ -4,9 +4,17 @@ import { useStore } from '../store/useStore';
 import { format } from 'date-fns';
 
 export default function ChatWindow() {
-    const { currentConversation, currentUser, messages, setMessages, addMessage } = useStore();
+    // [UPDATED] Destructured 'socket' from the store
+    const { currentConversation, currentUser, messages, setMessages, socket } = useStore();
     const [newMessage, setNewMessage] = useState('');
     const messagesEndRef = useRef(null);
+
+    // [ADDED] Effect to join the conversation room when it changes
+    useEffect(() => {
+        if (socket && currentConversation) {
+            socket.emit('join_conversation', currentConversation.id);
+        }
+    }, [currentConversation, socket]);
 
     useEffect(() => {
         if (currentConversation) {
@@ -31,18 +39,11 @@ export default function ChatWindow() {
         if (!newMessage.trim() || !currentConversation) return;
 
         try {
-            const { data } = await axios.post('/api/messages', {
+            await axios.post('/api/messages', {
                 conversationId: currentConversation.id,
                 content: newMessage
             });
-            // Optimistic update handled by socket or we add it here?
-            // Socket event handles it in store, but for sender we might want immediate feedback or wait for ack.
-            // Our store logic adds it on 'message:new' event.
-            // If we add it here manually, we might duplicate if socket event comes back.
-            // However, socket event usually comes back to sender too.
-            // We'll rely on socket for now, or check if socket event covers sender.
-            // Typically yes.
-            // data is the message object.
+            // Note: The message will be added to the UI via the socket 'message:new' event in useStore
             setNewMessage('');
         } catch (error) {
             console.error('Failed to send message', error);
