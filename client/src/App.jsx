@@ -1,44 +1,45 @@
-import { useEffect, useState } from 'react';
-import axios from 'axios';
-import { useStore } from './store/useStore';
-import AuthForm from './components/AuthForm';
-import Sidebar from './components/Sidebar';
-import ChatWindow from './components/ChatWindow';
+import { useEffect } from "react";
+import { Navigate, Route, Routes } from "react-router-dom";
+import { Loader } from "lucide-react";
+import { Toaster } from "react-hot-toast";
 
-function App() {
-  const { currentUser, setCurrentUser } = useStore();
-  const [loading, setLoading] = useState(true);
+// FIX: Ensure this matches your filename exactly (usually useAuthStore.js)
+import { useAuthStore } from "./store/useAuthStore"; 
+
+import Navbar from "./components/Navbar";
+import HomePage from "./pages/HomePage";
+import SignUpPage from "./pages/SignUpPage";
+import LoginPage from "./pages/LoginPage";
+import SettingsPage from "./pages/SettingsPage";
+import ProfilePage from "./pages/ProfilePage";
+
+const App = () => {
+  const { authUser, checkAuth, isCheckingAuth } = useAuthStore();
 
   useEffect(() => {
-    const checkAuth = async () => {
-      try {
-        const { data } = await axios.get('/api/auth/me');
-        setCurrentUser(data);
-      } catch (err) {
-        // Not authenticated
-      } finally {
-        setLoading(false);
-      }
-    };
     checkAuth();
-  }, [setCurrentUser]);
+  }, [checkAuth]);
 
-  if (loading) {
-    return <div className="flex items-center justify-center h-screen">Loading...</div>;
-  }
-
-  if (!currentUser) {
-    return <AuthForm />;
-  }
+  if (isCheckingAuth && !authUser)
+    return (
+      <div className="flex items-center justify-center h-screen">
+        <Loader className="size-10 animate-spin" />
+      </div>
+    );
 
   return (
-    <div className="flex h-screen bg-gray-100 overflow-hidden">
-      <Sidebar />
-      <div className="flex-1 flex flex-col h-full">
-        <ChatWindow />
-      </div>
+    <div>
+      <Navbar />
+      <Routes>
+        <Route path="/" element={authUser ? <HomePage /> : <Navigate transition to="/login" />} />
+        <Route path="/signup" element={!authUser ? <SignUpPage /> : <Navigate to="/" />} />
+        <Route path="/login" element={!authUser ? <LoginPage /> : <Navigate to="/" />} />
+        <Route path="/settings" element={<SettingsPage />} />
+        <Route path="/profile" element={authUser ? <ProfilePage /> : <Navigate to="/login" />} />
+      </Routes>
+      <Toaster />
     </div>
   );
-}
+};
 
 export default App;
