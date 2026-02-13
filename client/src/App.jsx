@@ -3,15 +3,18 @@ import { Navigate, Route, Routes } from "react-router-dom";
 import { Loader } from "lucide-react";
 import { Toaster } from "react-hot-toast";
 
-// DOUBLE CHECK: Is it "store" or "Store"? Is it "useAuthStore" or "UseAuthStore"?
+// The 'store' folder exists on your GitHub, so we keep this path
+// 'store' フォルダはGitHubに存在するので、このパスは維持します
 import { useAuthStore } from "./store/useAuthStore"; 
 
-import Navbar from "./components/Navbar";
-import HomePage from "./pages/HomePage";
-import SignUpPage from "./pages/SignUpPage";
-import LoginPage from "./pages/LoginPage";
-import SettingsPage from "./pages/SettingsPage";
-import ProfilePage from "./pages/ProfilePage";
+// All other files are in the 'src' folder directly, so we use "./Filename"
+// 他のファイルはすべて 'src' フォルダ直下にあるため、"./ファイル名" とします
+import Navbar from "./Navbar";
+import HomePage from "./HomePage";
+import SignUpPage from "./SignUpPage";
+import LoginPage from "./LoginPage";
+import SettingsPage from "./SettingsPage";
+import ProfilePage from "./ProfilePage";
 
 const App = () => {
   const { authUser, checkAuth, isCheckingAuth } = useAuthStore();
