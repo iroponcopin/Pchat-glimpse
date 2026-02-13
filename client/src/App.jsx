@@ -3,7 +3,7 @@ import { Navigate, Route, Routes } from "react-router-dom";
 import { Loader } from "lucide-react";
 import { Toaster } from "react-hot-toast";
 
-// FIX: Ensure this matches your filename exactly (usually useAuthStore.js)
+// DOUBLE CHECK: Is it "store" or "Store"? Is it "useAuthStore" or "UseAuthStore"?
 import { useAuthStore } from "./store/useAuthStore"; 
 
 import Navbar from "./components/Navbar";
@@ -31,7 +31,7 @@ const App = () => {
     <div>
       <Navbar />
       <Routes>
-        <Route path="/" element={authUser ? <HomePage /> : <Navigate transition to="/login" />} />
+        <Route path="/" element={authUser ? <HomePage /> : <Navigate to="/login" />} />
         <Route path="/signup" element={!authUser ? <SignUpPage /> : <Navigate to="/" />} />
         <Route path="/login" element={!authUser ? <LoginPage /> : <Navigate to="/" />} />
         <Route path="/settings" element={<SettingsPage />} />
