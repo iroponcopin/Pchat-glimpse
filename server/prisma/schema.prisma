@@ -1,0 +1,69 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id           String   @id @default(uuid())
+  email        String   @unique
+  passwordHash String
+  displayName  String
+  avatarUrl    String?
+  locale       String?
+  createdAt    DateTime @default(now())
+
+  sentMessages     Message[]
+  conversationsA   Conversation[] @relation("UserA")
+  conversationsB   Conversation[] @relation("UserB")
+  sentRequests     Connection[]   @relation("Requester")
+  receivedRequests Connection[]   @relation("Recipient")
+}
+
+model Connection {
+  id          String   @id @default(uuid())
+  requesterId String
+  recipientId String
+  status      String   @default("pending") // pending | accepted | rejected
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  requester User @relation("Requester", fields: [requesterId], references: [id])
+  recipient User @relation("Recipient", fields: [recipientId], references: [id])
+
+  @@unique([requesterId, recipientId])
+}
+
+model Conversation {
+  id            String   @id @default(uuid())
+  userAId       String
+  userBId       String
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+  lastMessageAt DateTime @default(now())
+
+  userA    User      @relation("UserA", fields: [userAId], references: [id])
+  userB    User      @relation("UserB", fields: [userBId], references: [id])
+  messages Message[]
+
+  @@unique([userAId, userBId])
+}
+
+model Message {
+  id              String    @id @default(uuid())
+  conversationId  String
+  senderId        String
+  body            String
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+  deletedAt       DateTime?
+  clientMessageId String
+
+  conversation Conversation @relation(fields: [conversationId], references: [id])
+  sender       User         @relation(fields: [senderId], references: [id])
+
+  @@unique([conversationId, clientMessageId])
+}
